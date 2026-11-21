@@ -37,10 +37,10 @@ DATOS DEL INGRESO:
 ESTADO ACTUAL DE LOS BOLSILLOS:
 ${pockets.map(p => `
 - [ID: "${p.id}"] "${p.nombre}":
-  * Tipo: ${p.tipo}
+  * Tipo: ${p.tipo} (${p.periodicidad || 'mensual'})
   * Saldo actual: $${Number(p.saldo_actual || 0).toLocaleString('es-CO')}
-  * Meta fijada: ${p.meta_monto ? `$${Number(p.meta_monto).toLocaleString('es-CO')}` : 'Sin meta fija'}
-  * Día vencimiento: ${p.dia_vencimiento ? `Día ${p.dia_vencimiento}` : 'No aplica'}
+  * Meta: ${p.meta_monto ? `$${Number(p.meta_monto).toLocaleString('es-CO')}` : 'Sin meta fija'}
+  * Vencimientos: ${p.dia_vencimiento ? (p.dia_vencimiento_2 ? `Días ${p.dia_vencimiento} y ${p.dia_vencimiento_2}` : `Día ${p.dia_vencimiento}`) : 'Flexible'}
 `).join('')}
 
 REGLAS MATEMÁTICAS INQUEBRANTABLES:

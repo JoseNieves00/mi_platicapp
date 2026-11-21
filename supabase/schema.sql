@@ -15,8 +15,10 @@ CREATE TABLE IF NOT EXISTS public.pockets (
     color TEXT DEFAULT '#10B981',
     icono TEXT DEFAULT 'wallet',
     tipo TEXT CHECK (tipo IN ('compromiso_fijo', 'gasto_corriente', 'ahorro', 'reserva', 'libre')) DEFAULT 'gasto_corriente',
+    periodicidad TEXT CHECK (periodicidad IN ('mensual', 'quincenal', 'semanal', 'libre')) DEFAULT 'mensual',
     meta_monto NUMERIC(14,2) DEFAULT NULL,
     dia_vencimiento INTEGER CHECK (dia_vencimiento BETWEEN 1 AND 31) DEFAULT NULL,
+    dia_vencimiento_2 INTEGER CHECK (dia_vencimiento_2 BETWEEN 1 AND 31) DEFAULT NULL, -- Para quincenal (ej. día 15 y 30)
     saldo_actual NUMERIC(14,2) DEFAULT 0,
     activo BOOLEAN DEFAULT true,
     created_at TIMESTAMPTZ DEFAULT NOW(),
