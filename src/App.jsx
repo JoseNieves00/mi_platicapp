@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
-import { suggestAllocationWithAI, isGeminiConfigured } from './services/gemini';
+import { suggestAllocationWithAI, isAIConfigured, activeAIProvider } from './services/ai';
 
 // Bolsillos iniciales de demostración
 const INITIAL_POCKETS = [
@@ -96,7 +96,7 @@ export default function App() {
     setAiError('');
 
     try {
-      if (!isGeminiConfigured) {
+      if (!isAIConfigured) {
         // Simulación inteligente para cuando aún no hayan puesto la API Key
         await new Promise(r => setTimeout(r, 800));
         setPercentages({
@@ -203,12 +203,12 @@ export default function App() {
         </div>
 
         <div className={`px-2.5 py-1 rounded-lg border flex items-center gap-1.5 whitespace-nowrap ${
-          isGeminiConfigured 
+          isAIConfigured 
             ? 'bg-blue-950/40 border-blue-800/60 text-blue-300' 
             : 'bg-slate-900 border-slate-800 text-slate-400'
         }`}>
           <Sparkles className="w-3 h-3 text-blue-400" />
-          <span>Gemini: {isGeminiConfigured ? 'Activo' : 'Clave pendiente'}</span>
+          <span>IA: {activeAIProvider || 'Clave pendiente'}</span>
         </div>
       </div>
 
@@ -361,12 +361,12 @@ export default function App() {
               {isAiLoading ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Gemini calculando porcentajes óptimos...</span>
+                  <span>Calculando porcentajes con {activeAIProvider || 'IA'}...</span>
                 </>
               ) : (
                 <>
                   <Sparkles className="w-4 h-4 text-blue-200" />
-                  <span>SUGERIR PORCENTAJES CON IA (GEMINI)</span>
+                  <span>SUGERIR PORCENTAJES CON {activeAIProvider ? activeAIProvider.toUpperCase() : 'IA'}</span>
                 </>
               )}
             </button>
@@ -510,9 +510,11 @@ export default function App() {
                   <div className="text-emerald-400 truncate">VITE_SUPABASE_URL=...</div>
                   <div className="text-emerald-400 truncate">VITE_SUPABASE_ANON_KEY=...</div>
                 </div>
-                <div className="pt-1 border-t border-slate-900">
-                  <span className="text-slate-500"># Gemini API:</span>
-                  <div className="text-blue-400 truncate">VITE_GEMINI_API_KEY=...</div>
+                <div className="pt-1 border-t border-slate-900 space-y-1">
+                  <span className="text-slate-500"># IA (Usa Groq gratis o Gemini):</span>
+                  <div className="text-blue-400 truncate">VITE_GROQ_API_KEY=gsk_...</div>
+                  <div className="text-slate-500 truncate text-[10px]"># O si prefieres Gemini:</div>
+                  <div className="text-blue-300/70 truncate">VITE_GEMINI_API_KEY=...</div>
                 </div>
               </div>
 
