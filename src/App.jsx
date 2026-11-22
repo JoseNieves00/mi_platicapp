@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { suggestAllocationWithAI, analyzeFinancesWithAI } from './services/ai';
-import { fetchPockets, savePocket, deletePocket, savePocketsBatch } from './services/pockets';
+import { fetchPockets, savePocket, deletePocket, savePocketsBatch, clearAllLocalUserData } from './services/pockets';
 import { fetchAccounts, saveAccount, deleteAccount } from './services/accounts';
 import { getStoredConfig, saveStoredConfig } from './services/config';
 import { signInWithGoogle, signOutUser, getCurrentUser, subscribeToAuthChanges } from './services/auth';
@@ -105,7 +105,7 @@ export default function App() {
   // Historial
   const [history, setHistory] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('platicapp_history_v3') || '[]');
+      return JSON.parse(localStorage.getItem('platicapp_history_real_v1') || '[]');
     } catch {
       return [];
     }
@@ -203,6 +203,15 @@ export default function App() {
       loadData();
     } catch {
       showToast('Error al cerrar sesión');
+    }
+  };
+
+  const handleResetAllData = () => {
+    if (window.confirm('¿Deseas reiniciar los datos locales para empezar tus bolsillos reales desde cero?')) {
+      clearAllLocalUserData();
+      setPockets([]);
+      setHistory([]);
+      showToast('Espacio reiniciado a cero');
     }
   };
 
@@ -426,7 +435,7 @@ export default function App() {
     };
     const updatedHistory = [newHistoryEntry, ...history];
     setHistory(updatedHistory);
-    localStorage.setItem('platicapp_history_v3', JSON.stringify(updatedHistory));
+    localStorage.setItem('platicapp_history_real_v1', JSON.stringify(updatedHistory));
 
     confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
     setIncomeModalOpen(false);
@@ -470,7 +479,7 @@ export default function App() {
     };
     const updatedHistory = [newHistoryEntry, ...history];
     setHistory(updatedHistory);
-    localStorage.setItem('platicapp_history_v3', JSON.stringify(updatedHistory));
+    localStorage.setItem('platicapp_history_real_v1', JSON.stringify(updatedHistory));
 
     setPayModalOpen(false);
     setSelectedPocketDetail(null);
@@ -547,7 +556,7 @@ export default function App() {
     };
     const updatedHistory = [newHistoryEntry, ...history];
     setHistory(updatedHistory);
-    localStorage.setItem('platicapp_history_v3', JSON.stringify(updatedHistory));
+    localStorage.setItem('platicapp_history_real_v1', JSON.stringify(updatedHistory));
 
     setExpenseModalOpen(false);
     setSelectedPocketDetail(null);
@@ -923,91 +932,112 @@ export default function App() {
               <span>Saldo</span>
             </div>
 
-            {sortedPockets.map(pocket => {
-              const hasTarget = pocket.meta_monto > 0;
-              const effectiveTarget = pocket.periodicidad === 'quincenal' && hasTarget 
-                ? pocket.meta_monto / 2 
-                : pocket.meta_monto;
-
-              const progress = hasTarget 
-                ? Math.min(100, Math.round((pocket.saldo_actual / effectiveTarget) * 100)) 
-                : null;
-
-              const isPaid = pocket.pagado_este_ciclo;
-
-              return (
-                <div 
-                  key={pocket.id}
-                  onClick={() => setSelectedPocketDetail(pocket)}
-                  className={`border rounded-2xl p-4 transition-all duration-150 cursor-pointer active:scale-[0.99] space-y-2.5 ${
-                    isPaid 
-                      ? 'bg-slate-950/30 border-slate-900/80 opacity-55 hover:opacity-90' 
-                      : 'bg-slate-900/60 border-slate-800/70 hover:border-slate-700/80'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div 
-                        className="w-3 h-3 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: pocket.color }}
-                      />
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-semibold text-sm text-white">{pocket.nombre}</h3>
-                          
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700/60">
-                            {pocket.cuenta_destino || 'Bancolombia'}
-                          </span>
-
-                          {isPaid && (
-                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                              Pagado
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="text-xs text-slate-400 mt-0.5">
-                          <span className="capitalize">{pocket.periodicidad || 'Mensual'}</span>
-                          {pocket.dia_vencimiento && (
-                            <span> · Vence día {pocket.dia_vencimiento}</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="text-right">
-                      <div className="font-semibold text-sm text-white">
-                        ${Number(pocket.saldo_actual || 0).toLocaleString('es-CO')}
-                      </div>
-                      {hasTarget && (
-                        <div className="text-[11px] text-slate-400">
-                          Meta: ${Number(effectiveTarget).toLocaleString('es-CO')}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {hasTarget && (
-                    <div className="w-full h-1 bg-slate-800/70 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full rounded-full transition-all duration-300"
-                        style={{ 
-                          width: `${progress}%`,
-                          backgroundColor: isPaid ? '#10B981' : pocket.color 
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  {pocket.deuda_interna && pocket.deuda_interna.monto > 0 && (
-                    <div className="text-[11px] text-amber-400 flex items-center gap-1 font-medium pt-0.5">
-                      <AlertCircle className="w-3 h-3" />
-                      <span>Debe ${pocket.deuda_interna.monto.toLocaleString('es-CO')} a {pocket.deuda_interna.lender_nombre || 'Libre'}</span>
-                    </div>
-                  )}
+            {sortedPockets.length === 0 ? (
+              <div className="bg-slate-900/40 border border-slate-800/80 rounded-3xl p-8 text-center space-y-3.5 backdrop-blur-sm">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center mx-auto">
+                  <Wallet className="w-6 h-6" />
                 </div>
-              );
-            })}
+                <div className="space-y-1">
+                  <h3 className="font-bold text-white text-sm">Tu espacio está listo para empezar</h3>
+                  <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
+                    Crea tus bolsillos reales (ej. Arriendo, Servicios, Gasolina, Mercado) para comenzar a organizar tus ingresos.
+                  </p>
+                </div>
+                <button
+                  onClick={handleOpenNewPocketModal}
+                  className="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs inline-flex items-center gap-1.5 transition active:scale-95 border border-slate-700/60"
+                >
+                  <Plus className="w-4 h-4 text-emerald-400" />
+                  <span>Crear mi primer bolsillo</span>
+                </button>
+              </div>
+            ) : (
+              sortedPockets.map(pocket => {
+                const hasTarget = pocket.meta_monto > 0;
+                const effectiveTarget = pocket.periodicidad === 'quincenal' && hasTarget 
+                  ? pocket.meta_monto / 2 
+                  : pocket.meta_monto;
+
+                const progress = hasTarget 
+                  ? Math.min(100, Math.round((pocket.saldo_actual / effectiveTarget) * 100)) 
+                  : null;
+
+                const isPaid = pocket.pagado_este_ciclo;
+
+                return (
+                  <div 
+                    key={pocket.id}
+                    onClick={() => setSelectedPocketDetail(pocket)}
+                    className={`border rounded-2xl p-4 transition-all duration-150 cursor-pointer active:scale-[0.99] space-y-2.5 ${
+                      isPaid 
+                        ? 'bg-slate-950/30 border-slate-900/80 opacity-55 hover:opacity-90' 
+                        : 'bg-slate-900/60 border-slate-800/70 hover:border-slate-700/80'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div 
+                          className="w-3 h-3 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: pocket.color }}
+                        />
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-semibold text-sm text-white">{pocket.nombre}</h3>
+                            
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700/60">
+                              {pocket.cuenta_destino || 'Bancolombia'}
+                            </span>
+
+                            {isPaid && (
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                Pagado
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="text-xs text-slate-400 mt-0.5">
+                            <span className="capitalize">{pocket.periodicidad || 'Mensual'}</span>
+                            {pocket.dia_vencimiento && (
+                              <span> · Vence día {pocket.dia_vencimiento}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <div className="font-semibold text-sm text-white">
+                          ${Number(pocket.saldo_actual || 0).toLocaleString('es-CO')}
+                        </div>
+                        {hasTarget && (
+                          <div className="text-[11px] text-slate-400">
+                            Meta: ${Number(effectiveTarget).toLocaleString('es-CO')}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {hasTarget && (
+                      <div className="w-full h-1 bg-slate-800/70 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full rounded-full transition-all duration-300"
+                          style={{ 
+                            width: `${progress}%`,
+                            backgroundColor: isPaid ? '#10B981' : pocket.color 
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    {pocket.deuda_interna && pocket.deuda_interna.monto > 0 && (
+                      <div className="text-[11px] text-amber-400 flex items-center gap-1 font-medium pt-0.5">
+                        <AlertCircle className="w-3 h-3" />
+                        <span>Debe ${pocket.deuda_interna.monto.toLocaleString('es-CO')} a {pocket.deuda_interna.lender_nombre || 'Libre'}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       )}
@@ -1515,6 +1545,24 @@ export default function App() {
                   <input type="file" accept=".json" onChange={handleImportBackup} className="hidden" />
                 </label>
               </div>
+            </div>
+
+            {/* Zona de Inicio Limpio */}
+            <div className="bg-slate-900/40 border border-slate-800/80 rounded-3xl p-5 space-y-2.5">
+              <div>
+                <h3 className="font-semibold text-xs text-slate-300">Empezar desde cero</h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Limpia los bolsillos y movimientos locales para configurar tus finanzas reales desde el inicio.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleResetAllData}
+                className="py-2.5 px-3.5 rounded-xl bg-slate-950 border border-slate-800 text-rose-400 hover:text-rose-300 hover:border-rose-900/50 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Limpiar y reiniciar datos locales</span>
+              </button>
             </div>
 
             <button
