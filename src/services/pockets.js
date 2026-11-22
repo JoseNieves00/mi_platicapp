@@ -1,14 +1,25 @@
 /**
  * Servicio de almacenamiento para Bolsillos
- * Sincroniza con Supabase si está configurado, o con localStorage de forma transparente.
+ * Sincroniza con Supabase si está autenticado, o con localStorage de forma transparente.
  */
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
-const LOCAL_STORAGE_KEY = 'platicapp_pockets_v3';
+const LOCAL_STORAGE_KEY = 'platicapp_pockets_v4';
+
+function generateUUID() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
 
 export const DEFAULT_POCKETS = [
   { 
-    id: 'p-arriendo', 
+    id: 'a0000000-0000-4000-8000-000000000001', 
     nombre: 'Arriendo', 
     color: '#EF4444', 
     tipo: 'compromiso_fijo', 
@@ -23,7 +34,7 @@ export const DEFAULT_POCKETS = [
     es_compartido: false
   },
   { 
-    id: 'p-youtube', 
+    id: 'a0000000-0000-4000-8000-000000000002', 
     nombre: 'YouTube & Suscripciones', 
     color: '#F59E0B', 
     tipo: 'compromiso_fijo', 
@@ -38,7 +49,7 @@ export const DEFAULT_POCKETS = [
     es_compartido: false
   },
   { 
-    id: 'p-gasolina', 
+    id: 'a0000000-0000-4000-8000-000000000003', 
     nombre: 'Gasolina & Transporte', 
     color: '#06B6D4', 
     tipo: 'gasto_corriente', 
@@ -53,7 +64,7 @@ export const DEFAULT_POCKETS = [
     es_compartido: false
   },
   { 
-    id: 'p-comida', 
+    id: 'a0000000-0000-4000-8000-000000000004', 
     nombre: 'Mercado', 
     color: '#10B981', 
     tipo: 'gasto_corriente', 
@@ -68,7 +79,7 @@ export const DEFAULT_POCKETS = [
     es_compartido: false
   },
   { 
-    id: 'p-reserva', 
+    id: 'a0000000-0000-4000-8000-000000000005', 
     nombre: 'Reserva & Colchón', 
     color: '#3B82F6', 
     tipo: 'reserva', 
@@ -83,7 +94,7 @@ export const DEFAULT_POCKETS = [
     es_compartido: false
   },
   { 
-    id: 'p-libre', 
+    id: 'a0000000-0000-4000-8000-000000000006', 
     nombre: 'Libre / Ocio', 
     color: '#8B5CF6', 
     tipo: 'libre', 
@@ -102,23 +113,30 @@ export const DEFAULT_POCKETS = [
 export async function fetchPockets() {
   if (isSupabaseConfigured && supabase) {
     try {
-      const { data, error } = await supabase
-        .from('pockets')
-        .select('*')
-        .order('created_at', { ascending: true });
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data, error } = await supabase
+          .from('pockets')
+          .select('*')
+          .order('created_at', { ascending: true });
 
-      if (!error && data && data.length > 0) {
-        return data;
+        if (!error && data && data.length > 0) {
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+          return data;
+        }
       }
     } catch (e) {
-      console.warn('Supabase no disponible, usando almacenamiento local:', e);
+      console.warn('Supabase no disponible o no autenticado:', e);
     }
   }
 
   const local = localStorage.getItem(LOCAL_STORAGE_KEY);
   if (local) {
     try {
-      return JSON.parse(local);
+      const parsed = JSON.parse(local);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
     } catch {
       // Ignorar
     }
@@ -129,26 +147,44 @@ export async function fetchPockets() {
 }
 
 export async function savePocketsBatch(pocketsList) {
-  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(pocketsList));
+  // Asegurar que cada bolsillo tenga un id con formato UUID
+  const sanitized = pocketsList.map(p => ({
+    ...p,
+    id: (p.id && p.id.length === 36 && p.id.includes('-')) ? p.id : generateUUID()
+  }));
+
+  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(sanitized));
+
   if (isSupabaseConfigured && supabase) {
     try {
-      await supabase.from('pockets').upsert(pocketsList);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const payload = sanitized.map(p => ({
+          ...p,
+          user_id: user.id
+        }));
+        await supabase.from('pockets').upsert(payload);
+      }
     } catch (e) {
-      console.warn('Error al guardar en Supabase:', e);
+      console.warn('Error al guardar bolsillos en Supabase:', e);
     }
   }
-  return pocketsList;
+  return sanitized;
 }
 
 export async function savePocket(pocket) {
   const current = await fetchPockets();
   let updated;
 
+  const validId = (pocket.id && pocket.id.length === 36 && pocket.id.includes('-')) 
+    ? pocket.id 
+    : generateUUID();
+
   const exists = current.some(p => p.id === pocket.id);
   if (exists) {
-    updated = current.map(p => p.id === pocket.id ? { ...p, ...pocket } : p);
+    updated = current.map(p => p.id === pocket.id ? { ...p, ...pocket, id: validId } : p);
   } else {
-    updated = [...current, { ...pocket, id: pocket.id || `p-${Date.now()}` }];
+    updated = [...current, { ...pocket, id: validId }];
   }
 
   return await savePocketsBatch(updated);
@@ -161,7 +197,10 @@ export async function deletePocket(pocketId) {
 
   if (isSupabaseConfigured && supabase) {
     try {
-      await supabase.from('pockets').delete().eq('id', pocketId);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('pockets').delete().eq('id', pocketId);
+      }
     } catch (e) {
       console.warn('Error al borrar en Supabase:', e);
     }
