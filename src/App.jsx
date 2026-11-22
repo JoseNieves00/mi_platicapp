@@ -757,7 +757,7 @@ export default function App() {
   };
 
   return (
-    <div className="w-full max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto min-h-screen pb-32 px-4 sm:px-6 md:px-8 pt-6 sm:pt-8 flex flex-col font-sans text-slate-100 antialiased selection:bg-emerald-500 selection:text-slate-950 overflow-x-hidden">
+    <div className="w-full max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto min-h-screen pb-[max(7.5rem,calc(env(safe-area-inset-bottom,0px)+7rem))] px-4 sm:px-6 md:px-8 pt-6 sm:pt-8 flex flex-col font-sans text-slate-100 antialiased selection:bg-emerald-500 selection:text-slate-950 overflow-x-hidden">
       
       {/* TOAST FLOTANTE */}
       {toastMessage && (
@@ -1606,9 +1606,9 @@ export default function App() {
       )}
 
       {/* ======================================================== */}
-      {/* MENÚ INFERIOR (APPLE HIG - 5 PESTAÑAS RESPONSIVE) */}
+      {/* MENÚ INFERIOR (APPLE HIG - 5 PESTAÑAS RESPONSIVE & SAFE AREA INSETS) */}
       {/* ======================================================== */}
-      <nav className="fixed bottom-0 left-0 right-0 max-w-lg md:max-w-xl mx-auto bg-slate-950/90 backdrop-blur-2xl border-t border-slate-800/70 z-40 px-3 sm:px-6 py-2 sm:py-2.5 flex items-center justify-around md:bottom-5 md:rounded-full md:border md:border-slate-800/80 md:shadow-2xl">
+      <nav className="fixed bottom-0 left-0 right-0 max-w-lg md:max-w-xl mx-auto bg-slate-950/95 backdrop-blur-2xl border-t border-slate-800/70 z-40 px-3 sm:px-6 pt-2 pb-[max(0.75rem,calc(env(safe-area-inset-bottom,0px)+0.4rem))] md:py-2.5 flex items-center justify-around md:bottom-5 md:rounded-full md:border md:border-slate-800/80 md:shadow-2xl">
         <button
           onClick={() => setActiveTab('home')}
           className={`flex flex-col items-center gap-1 py-1 px-2 transition-all active:scale-95 ${
@@ -1742,9 +1742,10 @@ export default function App() {
 
                 <button
                   onClick={() => handleDeletePocket(selectedPocketDetail.id)}
-                  className="py-3 px-5 rounded-xl bg-rose-950/30 border border-rose-900/40 text-rose-400 hover:bg-rose-900/40 text-xs sm:text-sm font-semibold flex items-center justify-center transition active:scale-95"
+                  className="py-3 px-4 rounded-xl bg-rose-950/30 border border-rose-900/40 text-rose-400 hover:bg-rose-900/40 text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 transition active:scale-95"
                 >
                   <Trash2 className="w-4 h-4" />
+                  <span>Borrar</span>
                 </button>
               </div>
             </div>
@@ -2205,12 +2206,29 @@ export default function App() {
                 </div>
               </div>
 
-              <button
-                type="submit"
-                className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm transition mt-2 active:scale-[0.98]"
-              >
-                {editingPocket.id ? 'Guardar cambios' : 'Crear bolsillo'}
-              </button>
+              <div className="space-y-2 pt-2">
+                <button
+                  type="submit"
+                  className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm transition active:scale-[0.98]"
+                >
+                  {editingPocket.id ? 'Guardar cambios' : 'Crear bolsillo'}
+                </button>
+
+                {editingPocket.id && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const id = editingPocket.id;
+                      setPocketModalOpen(false);
+                      handleDeletePocket(id);
+                    }}
+                    className="w-full py-3 rounded-xl bg-rose-950/30 hover:bg-rose-900/40 border border-rose-900/40 text-rose-400 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition active:scale-[0.98]"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Borrar este bolsillo</span>
+                  </button>
+                )}
+              </div>
             </form>
           </div>
         </div>
@@ -2258,12 +2276,29 @@ export default function App() {
                 </select>
               </div>
 
-              <button
-                type="submit"
-                className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm transition mt-2 active:scale-[0.98]"
-              >
-                {editingAccount.id ? 'Guardar Cambios' : 'Crear Cuenta'}
-              </button>
+              <div className="space-y-2 pt-2">
+                <button
+                  type="submit"
+                  className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm transition active:scale-[0.98]"
+                >
+                  {editingAccount.id ? 'Guardar Cambios' : 'Crear Cuenta'}
+                </button>
+
+                {editingAccount.id && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const id = editingAccount.id;
+                      setAccountModalOpen(false);
+                      handleDeleteAccount(id);
+                    }}
+                    className="w-full py-3 rounded-xl bg-rose-950/30 hover:bg-rose-900/40 border border-rose-900/40 text-rose-400 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition active:scale-[0.98]"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Borrar esta cuenta</span>
+                  </button>
+                )}
+              </div>
             </form>
           </div>
         </div>
