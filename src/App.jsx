@@ -122,8 +122,8 @@ export default function App() {
   const [isRefreshingTip, setIsRefreshingTip] = useState(false);
 
   // Estados para "Entrar Dinero"
-  const [incomingAmount, setIncomingAmount] = useState(800000);
-  const [incomeSource, setIncomeSource] = useState('Ingreso Nómina');
+  const [incomingAmount, setIncomingAmount] = useState('');
+  const [incomeSource, setIncomeSource] = useState('');
   const [incomeOriginAccount, setIncomeOriginAccount] = useState('Bancolombia');
   const [percentages, setPercentages] = useState({});
   const [aiReasonings, setAiReasonings] = useState({});
