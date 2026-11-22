@@ -18,11 +18,14 @@ import {
   Download,
   Upload,
   Search,
-  Filter,
-  PieChart
+  Building2,
+  CreditCard,
+  ArrowRightLeft,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { suggestAllocationWithAI, analyzeFinancesWithAI, getAIStatus } from './services/ai';
+import { suggestAllocationWithAI, analyzeFinancesWithAI } from './services/ai';
 import { fetchPockets, savePocket, deletePocket, savePocketsBatch } from './services/pockets';
 import { getStoredConfig, saveStoredConfig } from './services/config';
 
@@ -31,15 +34,24 @@ const COLOR_PALETTE = [
   '#F59E0B', '#EF4444', '#06B6D4', '#14B8A6'
 ];
 
+const COMMON_ACCOUNTS = [
+  'Bancolombia', 'Nequi', 'Daviplata', 'Tarjeta Virtual', 'Efectivo', 'Nu / Nubank', 'Lulo Bank'
+];
+
 export default function App() {
   const [pockets, setPockets] = useState([]);
   const [activeTab, setActiveTab] = useState('home'); // 'home' | 'copilot' | 'history' | 'settings'
+  const [balanceViewMode, setBalanceViewMode] = useState('categories'); // 'categories' | 'accounts'
   
   // Sheet de Detalle del Bolsillo
   const [selectedPocketDetail, setSelectedPocketDetail] = useState(null);
 
   // Modales
   const [incomeModalOpen, setIncomeModalOpen] = useState(false);
+  const [transfersSheetOpen, setTransfersSheetOpen] = useState(false);
+  const [pendingTransfers, setPendingTransfers] = useState([]);
+  const [completedTransferIds, setCompletedTransferIds] = useState({});
+
   const [pocketModalOpen, setPocketModalOpen] = useState(false);
   const [expenseModalOpen, setExpenseModalOpen] = useState(false);
   const [payModalOpen, setPayModalOpen] = useState(false);
@@ -54,8 +66,10 @@ export default function App() {
     meta_monto: '',
     dia_vencimiento: '',
     dia_vencimiento_2: '',
+    cuenta_destino: 'Nequi',
     saldo_actual: 0,
-    pagado_este_ciclo: false
+    pagado_este_ciclo: false,
+    es_compartido: false
   });
 
   // Formulario Gasto
@@ -64,25 +78,26 @@ export default function App() {
   // Historial
   const [history, setHistory] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('platicapp_history_v2') || '[]');
+      return JSON.parse(localStorage.getItem('platicapp_history_v3') || '[]');
     } catch {
       return [];
     }
   });
 
   // Filtros de Movimientos
-  const [historyFilter, setHistoryFilter] = useState('all'); // 'all' | 'ingreso' | 'gasto' | 'pago_compromiso'
+  const [historyFilter, setHistoryFilter] = useState('all');
   const [historySearch, setHistorySearch] = useState('');
 
   // Tip Inteligente en Inicio
   const [homeTip, setHomeTip] = useState(() => {
-    return localStorage.getItem('platicapp_home_tip') || 'Prioriza completar los compromisos que vencen en los próximos 10 días para mantener tu tranquilidad.';
+    return localStorage.getItem('platicapp_home_tip') || 'Al repartir ingresos, dispersa tu dinero en las cuentas correspondientes (Nequi, Bancolombia, etc.) para evitar gastos accidentales.';
   });
   const [isRefreshingTip, setIsRefreshingTip] = useState(false);
 
   // Estados para "Entrar Dinero"
   const [incomingAmount, setIncomingAmount] = useState(800000);
-  const [incomeSource, setIncomeSource] = useState('Ingreso');
+  const [incomeSource, setIncomeSource] = useState('Ingreso Nómina');
+  const [incomeOriginAccount, setIncomeOriginAccount] = useState('Bancolombia');
   const [percentages, setPercentages] = useState({});
   const [aiReasonings, setAiReasonings] = useState({});
   const [aiGeneralAdvice, setAiGeneralAdvice] = useState('');
@@ -96,7 +111,7 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState([
     {
       role: 'assistant',
-      text: 'Hola, soy tu copiloto. Analizo el ritmo de tus bolsillos y tus movimientos para darte sugerencias directas.'
+      text: 'Hola, soy tu copiloto. Te ayudo a analizar tus bolsillos, los saldos en tus diferentes cuentas bancarias y sugerirte optimizaciones.'
     }
   ]);
   const [isAnswering, setIsAnswering] = useState(false);
@@ -146,7 +161,7 @@ export default function App() {
   const currentTotalPercentage = Object.values(percentages).reduce((acc, val) => acc + Number(val || 0), 0);
   const isPercentageValid = Math.abs(currentTotalPercentage - 100) < 0.01;
 
-  // Distribución del dinero actual en porcentajes por categoría
+  // Distribución del dinero por Categoría
   const distributionByCategory = useMemo(() => {
     if (totalBalance <= 0) return { compromisos: 0, diario: 0, reserva: 0, libre: 0 };
     let comp = 0, diario = 0, res = 0, lib = 0;
@@ -163,6 +178,20 @@ export default function App() {
       reserva: Math.round((res / totalBalance) * 100),
       libre: Math.round((lib / totalBalance) * 100)
     };
+  }, [pockets, totalBalance]);
+
+  // Arqueo: Saldo agrupado por Cuenta Bancaria Física
+  const balancesByAccount = useMemo(() => {
+    const accounts = {};
+    pockets.forEach(p => {
+      const accName = p.cuenta_destino || 'Principal';
+      accounts[accName] = (accounts[accName] || 0) + Number(p.saldo_actual || 0);
+    });
+    return Object.entries(accounts).map(([name, amount]) => ({
+      name,
+      amount,
+      percentage: totalBalance > 0 ? Math.round((amount / totalBalance) * 100) : 0
+    })).sort((a, b) => b.amount - a.amount);
   }, [pockets, totalBalance]);
 
   // Bolsillos ordenados: los pagados bajan al final automáticamente
@@ -182,7 +211,8 @@ export default function App() {
       const matchesSearch = !q || 
         (item.fuente && item.fuente.toLowerCase().includes(q)) ||
         (item.pocketNombre && item.pocketNombre.toLowerCase().includes(q)) ||
-        (item.nota && item.nota.toLowerCase().includes(q));
+        (item.nota && item.nota.toLowerCase().includes(q)) ||
+        (item.cuenta && item.cuenta.toLowerCase().includes(q));
       return matchesType && matchesSearch;
     });
   }, [history, historyFilter, historySearch]);
@@ -207,24 +237,21 @@ export default function App() {
     }));
   };
 
-  // Generar un nuevo Tip inteligente para Inicio
+  // Generar Tip inteligente para Inicio
   const handleRefreshHomeTip = async () => {
     setIsRefreshingTip(true);
     try {
-      const res = await analyzeFinancesWithAI({ pockets, history, question: 'Dame un solo tip corto y concreto (máximo 2 líneas) para mejorar mis finanzas hoy basado en mis bolsillos y movimientos recientes.' });
-      const tipText = res.tips?.[0] || res.resumen_ejecutivo || 'Mantén cubiertos primero tus compromisos antes de realizar gastos no planificados.';
+      const res = await analyzeFinancesWithAI({ 
+        pockets, 
+        history, 
+        question: 'Dame un tip breve de 2 líneas sobre cómo dispersar o gestionar el dinero entre mis cuentas (Nequi, Bancolombia, etc.) y bolsillos.' 
+      });
+      const tipText = res.tips?.[0] || res.resumen_ejecutivo;
       setHomeTip(tipText);
       localStorage.setItem('platicapp_home_tip', tipText);
     } catch {
-      // Tip dinámico local según la situación real
-      const unpaidCommitments = pockets.filter(p => p.tipo === 'compromiso_fijo' && !p.pagado_este_ciclo);
-      let localTip = 'Tus bolsillos están equilibrados. Recuerda asignar al menos un 15% a tu colchón de reserva.';
-      if (unpaidCommitments.length > 0) {
-        const first = unpaidCommitments[0];
-        localTip = `Te falta cubrir ${first.nombre}. Prioriza asignarle un porcentaje en tu próximo ingreso para asegurar el pago.`;
-      }
-      setHomeTip(localTip);
-      localStorage.setItem('platicapp_home_tip', localTip);
+      setHomeTip('Recuerda: pasar el dinero a Nequi o Daviplata nada más recibirlo evita que gastes el arriendo o las suscripciones.');
+      localStorage.setItem('platicapp_home_tip', homeTip);
     } finally {
       setIsRefreshingTip(false);
     }
@@ -252,30 +279,49 @@ export default function App() {
       const simPcts = {};
       pockets.forEach(p => {
         if (p.pagado_este_ciclo) simPcts[p.id] = 5;
-        else if (p.tipo === 'compromiso_fijo') simPcts[p.id] = 35;
+        else if (p.tipo === 'compromiso_fijo') simPcts[p.id] = 30;
         else if (p.tipo === 'gasto_corriente') simPcts[p.id] = 25;
         else if (p.tipo === 'reserva') simPcts[p.id] = 20;
-        else simPcts[p.id] = 15;
+        else simPcts[p.id] = 20;
       });
       const curSum = Object.values(simPcts).reduce((a, b) => a + b, 0);
       if (pockets[0]) simPcts[pockets[0].id] += (100 - curSum);
 
       setPercentages(simPcts);
-      setAiGeneralAdvice('Reparto equilibrado según compromisos y metas.');
+      setAiGeneralAdvice('Reparto balanceado según compromisos y metas.');
     } finally {
       setIsAiLoading(false);
     }
   };
 
-  // Confirmar y Guardar Reparto
+  // Confirmar y Guardar Reparto + GENERAR HOJA DE TRASLADOS
   const handleConfirmAllocation = async () => {
     if (!isPercentageValid || incomingAmount <= 0) return;
 
     const allocationsSummary = [];
+    const transfersGenerated = [];
+
     const updated = pockets.map(p => {
       const pct = percentages[p.id] || 0;
       const addedMoney = Math.round((pct / 100) * incomingAmount);
-      allocationsSummary.push({ pocketNombre: p.nombre, porcentaje: pct, monto: addedMoney });
+      
+      allocationsSummary.push({ 
+        pocketNombre: p.nombre, 
+        cuenta: p.cuenta_destino || 'Principal',
+        porcentaje: pct, 
+        monto: addedMoney 
+      });
+
+      // Si el bolsillo tiene asignada una cuenta y recibe dinero, generar ítem en la Hoja de Traslados
+      if (addedMoney > 0) {
+        transfersGenerated.push({
+          id: `tr-${p.id}-${Date.now()}`,
+          pocketNombre: p.nombre,
+          cuentaDestino: p.cuenta_destino || 'Cuenta Destino',
+          monto: addedMoney,
+          color: p.color
+        });
+      }
 
       return {
         ...p,
@@ -292,16 +338,25 @@ export default function App() {
       tipo: 'ingreso',
       monto: incomingAmount,
       fuente: incomeSource,
+      cuentaOrigen: incomeOriginAccount,
       fecha: new Date().toISOString(),
       detalles: allocationsSummary
     };
     const updatedHistory = [newHistoryEntry, ...history];
     setHistory(updatedHistory);
-    localStorage.setItem('platicapp_history_v2', JSON.stringify(updatedHistory));
+    localStorage.setItem('platicapp_history_v3', JSON.stringify(updatedHistory));
 
     confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
     setIncomeModalOpen(false);
-    showToast('Ingreso repartido');
+
+    // Abrir Hoja de Traslados si hay transferencias que hacer
+    if (transfersGenerated.length > 0) {
+      setPendingTransfers(transfersGenerated);
+      setCompletedTransferIds({});
+      setTransfersSheetOpen(true);
+    } else {
+      showToast('Ingreso repartido con éxito');
+    }
   };
 
   // Pagar compromiso y vaciar bolsillo
@@ -327,18 +382,19 @@ export default function App() {
       id: `pay-${Date.now()}`,
       tipo: 'pago_compromiso',
       pocketNombre: selectedPocketDetail.nombre,
+      cuenta: selectedPocketDetail.cuenta_destino,
       monto: paymentAmount,
-      nota: 'Compromiso liquidado',
+      nota: `Compromiso liquidado desde ${selectedPocketDetail.cuenta_destino || 'cuenta'}`,
       fecha: new Date().toISOString()
     };
     const updatedHistory = [newHistoryEntry, ...history];
     setHistory(updatedHistory);
-    localStorage.setItem('platicapp_history_v2', JSON.stringify(updatedHistory));
+    localStorage.setItem('platicapp_history_v3', JSON.stringify(updatedHistory));
 
     setPayModalOpen(false);
     setSelectedPocketDetail(null);
     confetti({ particleCount: 30, spread: 50 });
-    showToast(`${selectedPocketDetail.nombre} pagado`);
+    showToast(`${selectedPocketDetail.nombre} pagado desde ${selectedPocketDetail.cuenta_destino || 'cuenta'}`);
   };
 
   // Reiniciar ciclo manualmente
@@ -347,7 +403,7 @@ export default function App() {
     setPockets(updated);
     await savePocketsBatch(updated);
     if (selectedPocketDetail) setSelectedPocketDetail({ ...selectedPocketDetail, pagado_este_ciclo: false });
-    showToast('Ciclo reiniciado');
+    showToast('Ciclo reiniciado para recibir fondos');
   };
 
   // Registrar Gasto
@@ -402,6 +458,7 @@ export default function App() {
       id: `exp-${Date.now()}`,
       tipo: 'gasto',
       pocketNombre: pocket.nombre,
+      cuenta: pocket.cuenta_destino || 'Cuenta',
       monto: amount,
       nota: expenseForm.nota || 'Gasto registrado',
       prestamo: borrowed,
@@ -409,7 +466,7 @@ export default function App() {
     };
     const updatedHistory = [newHistoryEntry, ...history];
     setHistory(updatedHistory);
-    localStorage.setItem('platicapp_history_v2', JSON.stringify(updatedHistory));
+    localStorage.setItem('platicapp_history_v3', JSON.stringify(updatedHistory));
 
     setExpenseModalOpen(false);
     setSelectedPocketDetail(null);
@@ -417,7 +474,7 @@ export default function App() {
     showToast('Gasto registrado');
   };
 
-  // Crear bolsillo con color aleatorio
+  // Crear bolsillo con color aleatorio y cuenta por defecto
   const handleOpenNewPocketModal = () => {
     const randomColor = COLOR_PALETTE[Math.floor(Math.random() * COLOR_PALETTE.length)];
     setEditingPocket({
@@ -429,8 +486,10 @@ export default function App() {
       meta_monto: '',
       dia_vencimiento: '',
       dia_vencimiento_2: '',
+      cuenta_destino: 'Nequi',
       saldo_actual: 0,
-      pagado_este_ciclo: false
+      pagado_este_ciclo: false,
+      es_compartido: false
     });
     setPocketModalOpen(true);
   };
@@ -446,6 +505,7 @@ export default function App() {
       meta_monto: editingPocket.meta_monto ? parseFloat(editingPocket.meta_monto) : null,
       dia_vencimiento: editingPocket.dia_vencimiento ? parseInt(editingPocket.dia_vencimiento) : null,
       dia_vencimiento_2: editingPocket.dia_vencimiento_2 ? parseInt(editingPocket.dia_vencimiento_2) : null,
+      cuenta_destino: editingPocket.cuenta_destino || 'Bancolombia',
       saldo_actual: parseFloat(editingPocket.saldo_actual) || 0
     };
 
@@ -475,11 +535,11 @@ export default function App() {
     } catch {
       setCopilotAnalysis({
         diagnostico_estado: 'Estable',
-        resumen_ejecutivo: 'Tus compromisos principales avanzan bien. Te recomendamos reforzar el fondo de reserva en tus próximos ingresos.',
+        resumen_ejecutivo: 'Tus compromisos principales avanzan con buen ritmo. Mantén las transferencias a Nequi y Tarjeta Virtual al día para los débitos automáticos.',
         tips: [
+          'Verifica que el saldo en Tarjeta Virtual cubra YouTube antes de la fecha de débito.',
           'Mantén tus gastos libres por debajo del 20% del total.',
-          'El arriendo y los servicios van en fecha este ciclo.',
-          'Asigna un 15% a la reserva para blindarte ante imprevistos.'
+          'Dispersa el dinero a Nequi apenas recibas ingresos para asegurar la gasolina.'
         ]
       });
     } finally {
@@ -508,7 +568,7 @@ export default function App() {
         ...prev, 
         { 
           role: 'assistant', 
-          text: `Con tu saldo disponible actual ($${totalBalance.toLocaleString('es-CO')}), te sugiero priorizar los pagos de los próximos 7 días antes de realizar compras discrecionales.` 
+          text: `Con tu saldo disponible actual ($${totalBalance.toLocaleString('es-CO')}), te sugiero verificar los saldos en Nequi y Bancolombia antes del próximo corte.` 
         }
       ]);
     } finally {
@@ -516,7 +576,7 @@ export default function App() {
     }
   };
 
-  // Guardar Ajustes Simplificados
+  // Guardar Ajustes
   const handleSaveSettings = (e) => {
     e.preventDefault();
     const isGroq = settings.apiKey.startsWith('gsk_');
@@ -559,7 +619,7 @@ export default function App() {
         }
         if (parsed.history && Array.isArray(parsed.history)) {
           setHistory(parsed.history);
-          localStorage.setItem('platicapp_history_v2', JSON.stringify(parsed.history));
+          localStorage.setItem('platicapp_history_v3', JSON.stringify(parsed.history));
         }
         showToast('Datos restaurados');
       } catch {
@@ -570,7 +630,7 @@ export default function App() {
   };
 
   return (
-    <div className="max-w-md mx-auto min-h-screen pb-28 px-5 pt-8 flex flex-col font-sans text-slate-100 antialiased selection:bg-emerald-500 selection:text-slate-950">
+    <div className="max-w-md mx-auto min-h-screen pb-32 px-4 sm:px-5 pt-6 flex flex-col font-sans text-slate-100 antialiased selection:bg-emerald-500 selection:text-slate-950 overflow-x-hidden">
       
       {/* TOAST FLOTANTE */}
       {toastMessage && (
@@ -585,12 +645,12 @@ export default function App() {
           <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-1.5">
             <span className="text-emerald-400">MI</span> Platicapp
           </h1>
-          <p className="text-xs text-slate-400">Tus finanzas por bolsillos y porcentajes</p>
+          <p className="text-xs text-slate-400">Bolsillos sincronizados con tus cuentas reales</p>
         </div>
 
         <button 
           onClick={handleOpenNewPocketModal}
-          className="p-2.5 rounded-full bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700 transition"
+          className="p-2.5 rounded-full bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700 transition active:scale-95"
           title="Nuevo bolsillo"
         >
           <Plus className="w-4 h-4" />
@@ -598,39 +658,61 @@ export default function App() {
       </header>
 
       {/* ======================================================== */}
-      {/* 1. INICIO (HOME - ULTRA SIMPLIFICADO CON TIP DE IA Y MÉTRICA) */}
+      {/* 1. INICIO (HOME - SALDOS, ARQUEO POR CUENTAS Y BOLSILLOS) */}
       {/* ======================================================== */}
       {activeTab === 'home' && (
-        <div className="space-y-5 animate-in fade-in duration-200">
+        <div className="space-y-4 animate-in fade-in duration-200">
           
           {/* Card Resumen de Saldo */}
-          <div className="bg-slate-900/50 border border-slate-800/80 rounded-3xl p-6 relative overflow-hidden backdrop-blur-sm space-y-4">
-            <div>
-              <span className="text-xs uppercase tracking-wider font-medium text-slate-400">Total disponible</span>
-              <div className="text-4xl font-extrabold text-white mt-1 tracking-tight">
-                ${totalBalance.toLocaleString('es-CO')}
+          <div className="bg-slate-900/50 border border-slate-800/80 rounded-3xl p-5 sm:p-6 relative overflow-hidden backdrop-blur-sm space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-xs uppercase tracking-wider font-medium text-slate-400">Total disponible</span>
+                <div className="text-3xl sm:text-4xl font-extrabold text-white mt-0.5 tracking-tight">
+                  ${totalBalance.toLocaleString('es-CO')}
+                </div>
+              </div>
+
+              {/* Selector de vista: Categorías vs Cuentas Bancarias */}
+              <div className="flex p-0.5 bg-slate-950/80 border border-slate-800 rounded-xl text-[11px] font-semibold">
+                <button
+                  onClick={() => setBalanceViewMode('categories')}
+                  className={`py-1 px-2.5 rounded-lg transition ${
+                    balanceViewMode === 'categories' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  Tipo
+                </button>
+                <button
+                  onClick={() => setBalanceViewMode('accounts')}
+                  className={`py-1 px-2.5 rounded-lg transition ${
+                    balanceViewMode === 'accounts' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  Cuentas
+                </button>
               </div>
             </div>
 
-            {/* Barra de Distribución Visual por Categoría */}
-            {totalBalance > 0 && (
-              <div className="space-y-1.5 pt-1">
+            {/* VISTA A: BARRA DE CATEGORÍAS */}
+            {balanceViewMode === 'categories' && totalBalance > 0 && (
+              <div className="space-y-1.5 pt-1 animate-in fade-in">
                 <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden flex">
                   {distributionByCategory.compromisos > 0 && (
-                    <div style={{ width: `${distributionByCategory.compromisos}%` }} className="bg-rose-500 h-full" title="Compromisos" />
+                    <div style={{ width: `${distributionByCategory.compromisos}%` }} className="bg-rose-500 h-full" />
                   )}
                   {distributionByCategory.diario > 0 && (
-                    <div style={{ width: `${distributionByCategory.diario}%` }} className="bg-emerald-500 h-full" title="Diario" />
+                    <div style={{ width: `${distributionByCategory.diario}%` }} className="bg-emerald-500 h-full" />
                   )}
                   {distributionByCategory.reserva > 0 && (
-                    <div style={{ width: `${distributionByCategory.reserva}%` }} className="bg-blue-500 h-full" title="Reserva" />
+                    <div style={{ width: `${distributionByCategory.reserva}%` }} className="bg-blue-500 h-full" />
                   )}
                   {distributionByCategory.libre > 0 && (
-                    <div style={{ width: `${distributionByCategory.libre}%` }} className="bg-purple-500 h-full" title="Libre" />
+                    <div style={{ width: `${distributionByCategory.libre}%` }} className="bg-purple-500 h-full" />
                   )}
                 </div>
 
-                <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
+                <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5 flex-wrap gap-1">
                   <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-rose-500" /> Fijos {distributionByCategory.compromisos}%</span>
                   <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Diario {distributionByCategory.diario}%</span>
                   <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-blue-500" /> Reserva {distributionByCategory.reserva}%</span>
@@ -639,7 +721,26 @@ export default function App() {
               </div>
             )}
 
-            <div className="pt-3 border-t border-slate-800/60 flex items-center justify-between text-xs text-slate-400">
+            {/* VISTA B: ARQUEO POR CUENTA BANCARIA REAL */}
+            {balanceViewMode === 'accounts' && (
+              <div className="space-y-1.5 pt-1 animate-in fade-in">
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  {balancesByAccount.map(acc => (
+                    <div key={acc.name} className="p-2 rounded-xl bg-slate-950/70 border border-slate-800/80 flex items-center justify-between">
+                      <div className="truncate pr-1">
+                        <span className="text-slate-400 text-[10px] block truncate">{acc.name}</span>
+                        <span className="font-bold text-white text-xs">${acc.amount.toLocaleString('es-CO')}</span>
+                      </div>
+                      <span className="text-[10px] font-semibold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded">
+                        {acc.percentage}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="pt-2.5 border-t border-slate-800/60 flex items-center justify-between text-xs text-slate-400">
               <span>{pockets.length} bolsillos</span>
               <button
                 onClick={() => {
@@ -653,7 +754,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* WIDGET DEL TIP DE LA IA EN EL HOME */}
+          {/* WIDGET DEL TIP DE LA IA */}
           <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 flex items-start gap-3 backdrop-blur-sm relative">
             <Sparkles className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
             <div className="flex-1 text-xs">
@@ -664,7 +765,7 @@ export default function App() {
               onClick={handleRefreshHomeTip}
               disabled={isRefreshingTip}
               className="text-slate-500 hover:text-slate-300 transition p-1"
-              title="Obtener otro tip"
+              title="Actualizar tip"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingTip ? 'animate-spin text-emerald-400' : ''}`} />
             </button>
@@ -715,8 +816,14 @@ export default function App() {
                         style={{ backgroundColor: pocket.color }}
                       />
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-semibold text-sm text-white">{pocket.nombre}</h3>
+                          
+                          {/* Badge de Cuenta Bancaria / Destino */}
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700/60">
+                            {pocket.cuenta_destino || 'Bancolombia'}
+                          </span>
+
                           {isPaid && (
                             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                               Pagado
@@ -745,6 +852,7 @@ export default function App() {
                     </div>
                   </div>
 
+                  {/* Barra sutil de progreso */}
                   {hasTarget && (
                     <div className="w-full h-1 bg-slate-800/70 rounded-full overflow-hidden">
                       <div 
@@ -757,6 +865,7 @@ export default function App() {
                     </div>
                   )}
 
+                  {/* Deuda Interna */}
                   {pocket.deuda_interna && pocket.deuda_interna.monto > 0 && (
                     <div className="text-[11px] text-amber-400 flex items-center gap-1 font-medium pt-0.5">
                       <AlertCircle className="w-3 h-3" />
@@ -779,7 +888,7 @@ export default function App() {
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-emerald-400" /> Copiloto
             </h2>
-            <p className="text-xs text-slate-400">Análisis inteligente y recomendaciones para tus bolsillos</p>
+            <p className="text-xs text-slate-400">Análisis de bolsillos y dispersión de cuentas en tiempo real</p>
           </div>
 
           <button
@@ -866,28 +975,26 @@ export default function App() {
       )}
 
       {/* ======================================================== */}
-      {/* 3. MOVIMIENTOS (CON FILTROS RÁPIDOS Y BÚSQUEDA) */}
+      {/* 3. MOVIMIENTOS (CON FILTROS Y BÚSQUEDA) */}
       {/* ======================================================== */}
       {activeTab === 'history' && (
         <div className="space-y-4 animate-in fade-in duration-150">
           <div>
             <h2 className="text-xl font-bold text-white">Movimientos</h2>
-            <p className="text-xs text-slate-400">Historial completo con filtros y búsqueda</p>
+            <p className="text-xs text-slate-400">Historial con cuenta bancaria asociada</p>
           </div>
 
-          {/* Barra de Búsqueda */}
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               value={historySearch}
               onChange={(e) => setHistorySearch(e.target.value)}
-              placeholder="Buscar por bolsillo, fuente o nota..."
+              placeholder="Buscar por bolsillo, cuenta o nota..."
               className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 pl-9 pr-3 text-xs text-white focus:outline-none focus:border-slate-700"
             />
           </div>
 
-          {/* Chips de Filtro Rápido */}
           <div className="flex gap-1.5 overflow-x-auto pb-1 text-xs">
             <button
               onClick={() => setHistoryFilter('all')}
@@ -933,16 +1040,24 @@ export default function App() {
 
           {filteredHistory.length === 0 ? (
             <div className="text-center py-16 text-slate-500 text-xs">
-              No se encontraron movimientos con los filtros aplicados.
+              No se encontraron movimientos.
             </div>
           ) : (
             <div className="space-y-2.5">
               {filteredHistory.map(item => (
                 <div key={item.id} className="bg-slate-900/60 border border-slate-800/70 rounded-2xl p-4 space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold text-xs text-white">
-                      {item.tipo === 'ingreso' ? `Ingreso: ${item.fuente}` : item.tipo === 'pago_compromiso' ? `Compromiso Pagado: ${item.pocketNombre}` : item.pocketNombre}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-xs text-white">
+                        {item.tipo === 'ingreso' ? `Ingreso: ${item.fuente}` : item.tipo === 'pago_compromiso' ? `Compromiso: ${item.pocketNombre}` : item.pocketNombre}
+                      </span>
+                      {item.cuenta && (
+                        <span className="text-[10px] text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
+                          {item.cuenta}
+                        </span>
+                      )}
+                    </div>
+
                     <span className={`font-semibold text-xs ${
                       item.tipo === 'ingreso' ? 'text-emerald-400' : 'text-slate-300'
                     }`}>
@@ -959,7 +1074,7 @@ export default function App() {
                     <div className="pt-2 border-t border-slate-800/50 grid grid-cols-2 gap-1 text-[11px] text-slate-400">
                       {item.detalles.map((d, i) => (
                         <div key={i} className="truncate">
-                          {d.pocketNombre}: <span className="text-slate-300 font-medium">{d.porcentaje}%</span> (${d.monto.toLocaleString('es-CO')})
+                          {d.pocketNombre} ({d.cuenta}): <span className="text-slate-300 font-medium">{d.porcentaje}%</span> (${d.monto.toLocaleString('es-CO')})
                         </div>
                       ))}
                     </div>
@@ -983,7 +1098,7 @@ export default function App() {
 
           <form onSubmit={handleSaveSettings} className="space-y-4">
             
-            {/* Clave de Inteligencia Artificial (Un solo campo) */}
+            {/* Clave de Inteligencia Artificial */}
             <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-5 space-y-3">
               <div className="flex items-center justify-between">
                 <div>
@@ -1027,7 +1142,7 @@ export default function App() {
             {/* Respaldos */}
             <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-5 space-y-3">
               <h3 className="font-semibold text-sm text-white">Copia de Seguridad</h3>
-              <p className="text-[11px] text-slate-400">Descarga o restaura todos tus bolsillos y movimientos en cualquier momento.</p>
+              <p className="text-[11px] text-slate-400">Descarga o restaura tus bolsillos y cuentas en cualquier momento.</p>
 
               <div className="flex gap-2 pt-1">
                 <button
@@ -1049,7 +1164,7 @@ export default function App() {
 
             <button
               type="submit"
-              className="w-full py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition"
+              className="w-full py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition active:scale-[0.99]"
             >
               Guardar Ajustes
             </button>
@@ -1058,7 +1173,7 @@ export default function App() {
       )}
 
       {/* ======================================================== */}
-      {/* MENÚ INFERIOR (APPLE HIG) */}
+      {/* MENÚ INFERIOR (APPLE HIG - 4 PESTAÑAS) */}
       {/* ======================================================== */}
       <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-slate-950/85 backdrop-blur-xl border-t border-slate-800/70 z-40 px-3 py-2 flex items-center justify-around">
         <button
@@ -1107,13 +1222,16 @@ export default function App() {
       {/* ======================================================== */}
       {selectedPocketDetail && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-end justify-center p-0">
-          <div className="bg-slate-900 border-t border-slate-800 rounded-t-3xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in slide-in-from-bottom duration-200">
+          <div className="bg-slate-900 border-t border-slate-800 rounded-t-3xl max-w-md w-full p-5 sm:p-6 space-y-4 shadow-2xl animate-in slide-in-from-bottom duration-200 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2.5">
                 <div className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: selectedPocketDetail.color }} />
-                <h3 className="font-bold text-white text-base">{selectedPocketDetail.nombre}</h3>
+                <div>
+                  <h3 className="font-bold text-white text-base">{selectedPocketDetail.nombre}</h3>
+                  <span className="text-[10px] text-slate-400">Cuenta: {selectedPocketDetail.cuenta_destino || 'Bancolombia'}</span>
+                </div>
               </div>
-              <button onClick={() => setSelectedPocketDetail(null)} className="text-slate-400 hover:text-white">
+              <button onClick={() => setSelectedPocketDetail(null)} className="text-slate-400 hover:text-white p-1">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1137,13 +1255,14 @@ export default function App() {
 
             {/* Acciones principales del Bolsillo */}
             <div className="space-y-2 pt-1">
+              {/* Pagar si es compromiso */}
               {selectedPocketDetail.tipo === 'compromiso_fijo' && Number(selectedPocketDetail.saldo_actual) > 0 && !selectedPocketDetail.pagado_este_ciclo && (
                 <button
                   onClick={() => setPayModalOpen(true)}
                   className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 transition"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Pagar compromiso y liquidar ciclo</span>
+                  <span>Pagar compromiso desde {selectedPocketDetail.cuenta_destino || 'cuenta'}</span>
                 </button>
               )}
 
@@ -1197,17 +1316,17 @@ export default function App() {
       {/* ======================================================== */}
       {incomeModalOpen && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl my-6">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-5 sm:p-6 space-y-4 shadow-2xl my-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <h3 className="font-bold text-white text-base">Entrar dinero</h3>
-              <button onClick={() => setIncomeModalOpen(false)} className="text-slate-400 hover:text-white">
+              <button onClick={() => setIncomeModalOpen(false)} className="text-slate-400 hover:text-white p-1">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-slate-400">Monto ingresado</label>
+                <label className="text-xs text-slate-400">Monto ingresado ($)</label>
                 <div className="relative mt-1">
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
                   <input
@@ -1220,15 +1339,30 @@ export default function App() {
                 </div>
               </div>
 
-              <div>
-                <label className="text-xs text-slate-400">Concepto</label>
-                <input
-                  type="text"
-                  value={incomeSource}
-                  onChange={(e) => setIncomeSource(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none mt-1"
-                  placeholder="ej. Pago freelance, quincena..."
-                />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-slate-400">Concepto</label>
+                  <input
+                    type="text"
+                    value={incomeSource}
+                    onChange={(e) => setIncomeSource(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-2.5 text-xs text-white focus:outline-none mt-1"
+                    placeholder="ej. Nómina, venta..."
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-slate-400">¿A qué cuenta entró?</label>
+                  <select
+                    value={incomeOriginAccount}
+                    onChange={(e) => setIncomeOriginAccount(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-2 text-xs text-white mt-1"
+                  >
+                    {COMMON_ACCOUNTS.map(acc => (
+                      <option key={acc} value={acc}>{acc}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <button
@@ -1258,7 +1392,7 @@ export default function App() {
               </div>
 
               {/* Sliders */}
-              <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+              <div className="space-y-2.5 max-h-52 overflow-y-auto pr-1">
                 {pockets.map(pocket => {
                   const pct = percentages[pocket.id] || 0;
                   const allocated = Math.round((pct / 100) * incomingAmount);
@@ -1266,11 +1400,14 @@ export default function App() {
                   return (
                     <div key={pocket.id} className="bg-slate-950/60 border border-slate-800/60 rounded-xl p-3 space-y-1.5">
                       <div className="flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: pocket.color }} />
-                          <span className="font-semibold text-white">{pocket.nombre}</span>
+                        <div className="flex items-center gap-1.5 truncate pr-2">
+                          <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: pocket.color }} />
+                          <span className="font-semibold text-white truncate">{pocket.nombre}</span>
+                          <span className="text-[10px] text-slate-400 bg-slate-900 px-1 py-0.2 rounded border border-slate-800">
+                            {pocket.cuenta_destino || 'Bancolombia'}
+                          </span>
                         </div>
-                        <span className="font-semibold text-white">${allocated.toLocaleString('es-CO')} ({pct}%)</span>
+                        <span className="font-semibold text-white flex-shrink-0">${allocated.toLocaleString('es-CO')} ({pct}%)</span>
                       </div>
 
                       <input
@@ -1290,11 +1427,83 @@ export default function App() {
               <button
                 onClick={handleConfirmAllocation}
                 disabled={!isPercentageValid || incomingAmount <= 0}
-                className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 text-slate-950 font-bold text-xs transition mt-2"
+                className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 text-slate-950 font-bold text-xs transition mt-2 active:scale-[0.99]"
               >
-                Confirmar reparto
+                Confirmar reparto y ver traslados
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* HOJA DE TRASLADOS (CHECKLIST DE TRANSFERENCIAS INMEDIATAS) */}
+      {/* ======================================================== */}
+      {transfersSheetOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-5 sm:p-6 space-y-4 shadow-2xl my-6 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <ArrowRightLeft className="w-5 h-5 text-emerald-400" />
+                <h3 className="font-bold text-white text-base">Guía de Traslados</h3>
+              </div>
+              <button onClick={() => setTransfersSheetOpen(false)} className="text-slate-400 hover:text-white p-1">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              El dinero ingresó a <span className="font-bold text-white">{incomeOriginAccount}</span>. Haz estas transferencias en tus apps bancarias para dejar todo al día:
+            </p>
+
+            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+              {pendingTransfers.map(tr => {
+                const isChecked = Boolean(completedTransferIds[tr.id]);
+                const isSameAccount = tr.cuentaDestino.toLowerCase() === incomeOriginAccount.toLowerCase();
+
+                return (
+                  <div 
+                    key={tr.id}
+                    onClick={() => setCompletedTransferIds(prev => ({ ...prev, [tr.id]: !prev[tr.id] }))}
+                    className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                      isChecked 
+                        ? 'bg-slate-950/30 border-slate-900 opacity-50 line-through' 
+                        : 'bg-slate-950/70 border-slate-800 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      {isChecked ? (
+                        <CheckSquare className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                      ) : (
+                        <Square className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                      )}
+                      <div>
+                        <div className="text-xs font-semibold text-white">
+                          {isSameAccount ? `Dejar en ${tr.cuentaDestino}` : `Pasar a ${tr.cuentaDestino}`}
+                        </div>
+                        <div className="text-[10px] text-slate-400">
+                          Para {tr.pocketNombre}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="font-bold text-xs text-emerald-400">
+                      ${tr.monto.toLocaleString('es-CO')}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={() => {
+                setTransfersSheetOpen(false);
+                showToast('Transferencias completadas');
+              }}
+              className="w-full py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition"
+            >
+              Listo, cuentas al día
+            </button>
           </div>
         </div>
       )}
@@ -1307,7 +1516,7 @@ export default function App() {
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <h3 className="font-bold text-white text-base">Pagar compromiso</h3>
-              <button onClick={() => setPayModalOpen(false)} className="text-slate-400 hover:text-white">
+              <button onClick={() => setPayModalOpen(false)} className="text-slate-400 hover:text-white p-1">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1315,10 +1524,13 @@ export default function App() {
             <div className="space-y-3 text-xs text-slate-300">
               <p>Vas a liquidar el compromiso <span className="font-bold text-white">{selectedPocketDetail.nombre}</span>.</p>
 
-              <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl text-center">
-                <span className="text-[11px] text-slate-400 block mb-0.5">Monto del pago</span>
+              <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl text-center space-y-1">
+                <span className="text-[11px] text-slate-400 block">Monto que sale</span>
                 <span className="text-2xl font-black text-white">
                   ${Number(selectedPocketDetail.saldo_actual || 0).toLocaleString('es-CO')}
+                </span>
+                <span className="text-[11px] text-emerald-400 block font-medium">
+                  Desde {selectedPocketDetail.cuenta_destino || 'Bancolombia'}
                 </span>
               </div>
 
@@ -1355,7 +1567,7 @@ export default function App() {
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <h3 className="font-bold text-white text-base">Registrar gasto</h3>
-              <button onClick={() => setExpenseModalOpen(false)} className="text-slate-400 hover:text-white">
+              <button onClick={() => setExpenseModalOpen(false)} className="text-slate-400 hover:text-white p-1">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1372,7 +1584,7 @@ export default function App() {
                   <option value="">Selecciona un bolsillo...</option>
                   {pockets.map(p => (
                     <option key={p.id} value={p.id}>
-                      {p.nombre} (${Number(p.saldo_actual).toLocaleString('es-CO')})
+                      {p.nombre} (${Number(p.saldo_actual).toLocaleString('es-CO')}) - {p.cuenta_destino || 'Bancolombia'}
                     </option>
                   ))}
                 </select>
@@ -1397,7 +1609,7 @@ export default function App() {
                   value={expenseForm.nota}
                   onChange={(e) => setExpenseForm(prev => ({ ...prev, nota: e.target.value }))}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none mt-1"
-                  placeholder="ej. Almuerzo, mercado, factura..."
+                  placeholder="ej. Gasolina en Terpel, Almuerzo..."
                 />
               </div>
 
@@ -1413,16 +1625,16 @@ export default function App() {
       )}
 
       {/* ======================================================== */}
-      {/* MODAL: CREAR / EDITAR BOLSILLO */}
+      {/* MODAL: CREAR / EDITAR BOLSILLO CON CUENTA BANCARIA */}
       {/* ======================================================== */}
       {pocketModalOpen && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl my-8">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-5 sm:p-6 space-y-4 shadow-2xl my-8 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <h3 className="font-bold text-white text-base">
                 {editingPocket.id ? 'Editar bolsillo' : 'Nuevo bolsillo'}
               </h3>
-              <button onClick={() => setPocketModalOpen(false)} className="text-slate-400 hover:text-white">
+              <button onClick={() => setPocketModalOpen(false)} className="text-slate-400 hover:text-white p-1">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1435,9 +1647,34 @@ export default function App() {
                   value={editingPocket.nombre}
                   onChange={(e) => setEditingPocket(prev => ({ ...prev, nombre: e.target.value }))}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none mt-1"
-                  placeholder="ej. Arriendo, Mercado, Moto..."
+                  placeholder="ej. Gasolina, Arriendo, YouTube..."
                   required
                 />
+              </div>
+
+              {/* Cuenta o Destino Bancario */}
+              <div>
+                <label className="text-xs text-slate-400">¿A qué cuenta pasas esta plata?</label>
+                <div className="flex gap-2 mt-1">
+                  <select
+                    value={editingPocket.cuenta_destino}
+                    onChange={(e) => setEditingPocket(prev => ({ ...prev, cuenta_destino: e.target.value }))}
+                    className="flex-1 bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white"
+                  >
+                    {COMMON_ACCOUNTS.map(acc => (
+                      <option key={acc} value={acc}>{acc}</option>
+                    ))}
+                    <option value="Otra">Otra cuenta...</option>
+                  </select>
+                </div>
+                {editingPocket.cuenta_destino === 'Otra' && (
+                  <input
+                    type="text"
+                    placeholder="Escribe el nombre de la cuenta..."
+                    onChange={(e) => setEditingPocket(prev => ({ ...prev, cuenta_destino: e.target.value }))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-1.5 px-3 text-xs text-white mt-1.5"
+                  />
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-2">

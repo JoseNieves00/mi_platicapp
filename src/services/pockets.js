@@ -4,7 +4,7 @@
  */
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
-const LOCAL_STORAGE_KEY = 'platicapp_pockets_v2';
+const LOCAL_STORAGE_KEY = 'platicapp_pockets_v3';
 
 export const DEFAULT_POCKETS = [
   { 
@@ -17,19 +17,40 @@ export const DEFAULT_POCKETS = [
     dia_vencimiento: 30,
     dia_vencimiento_2: null,
     saldo_actual: 450000,
-    deuda_interna: null // { pocket_id, monto }
+    cuenta_destino: 'Bancolombia',
+    pagado_este_ciclo: false,
+    deuda_interna: null,
+    es_compartido: false
   },
   { 
-    id: 'p-servicios', 
-    nombre: 'Servicios', 
+    id: 'p-youtube', 
+    nombre: 'YouTube & Suscripciones', 
     color: '#F59E0B', 
     tipo: 'compromiso_fijo', 
     periodicidad: 'mensual',
-    meta_monto: 250000, 
-    dia_vencimiento: 15,
+    meta_monto: 45000, 
+    dia_vencimiento: 12,
     dia_vencimiento_2: null,
-    saldo_actual: 180000,
-    deuda_interna: null
+    saldo_actual: 45000,
+    cuenta_destino: 'Tarjeta Virtual',
+    pagado_este_ciclo: false,
+    deuda_interna: null,
+    es_compartido: false
+  },
+  { 
+    id: 'p-gasolina', 
+    nombre: 'Gasolina & Transporte', 
+    color: '#06B6D4', 
+    tipo: 'gasto_corriente', 
+    periodicidad: 'quincenal',
+    meta_monto: 240000, 
+    dia_vencimiento: 15,
+    dia_vencimiento_2: 30,
+    saldo_actual: 120000,
+    cuenta_destino: 'Nequi',
+    pagado_este_ciclo: false,
+    deuda_interna: null,
+    es_compartido: false
   },
   { 
     id: 'p-comida', 
@@ -41,11 +62,14 @@ export const DEFAULT_POCKETS = [
     dia_vencimiento: 15,
     dia_vencimiento_2: 30,
     saldo_actual: 220000,
-    deuda_interna: null
+    cuenta_destino: 'Daviplata',
+    pagado_este_ciclo: false,
+    deuda_interna: null,
+    es_compartido: false
   },
   { 
     id: 'p-reserva', 
-    nombre: 'Reserva', 
+    nombre: 'Reserva & Colchón', 
     color: '#3B82F6', 
     tipo: 'reserva', 
     periodicidad: 'libre',
@@ -53,19 +77,25 @@ export const DEFAULT_POCKETS = [
     dia_vencimiento: null,
     dia_vencimiento_2: null,
     saldo_actual: 850000,
-    deuda_interna: null
+    cuenta_destino: 'Bancolombia',
+    pagado_este_ciclo: false,
+    deuda_interna: null,
+    es_compartido: false
   },
   { 
     id: 'p-libre', 
-    nombre: 'Libre', 
+    nombre: 'Libre / Ocio', 
     color: '#8B5CF6', 
     tipo: 'libre', 
     periodicidad: 'libre',
     meta_monto: null, 
     dia_vencimiento: null,
     dia_vencimiento_2: null,
-    saldo_actual: 140000,
-    deuda_interna: null
+    saldo_actual: 155000,
+    cuenta_destino: 'Efectivo',
+    pagado_este_ciclo: false,
+    deuda_interna: null,
+    es_compartido: false
   }
 ];
 
