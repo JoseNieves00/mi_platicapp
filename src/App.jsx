@@ -22,11 +22,14 @@ import {
   CreditCard,
   ArrowRightLeft,
   CheckSquare,
-  Square
+  Square,
+  Layers,
+  Wallet
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { suggestAllocationWithAI, analyzeFinancesWithAI } from './services/ai';
 import { fetchPockets, savePocket, deletePocket, savePocketsBatch } from './services/pockets';
+import { fetchAccounts, saveAccount, deleteAccount } from './services/accounts';
 import { getStoredConfig, saveStoredConfig } from './services/config';
 
 const COLOR_PALETTE = [
@@ -34,16 +37,14 @@ const COLOR_PALETTE = [
   '#F59E0B', '#EF4444', '#06B6D4', '#14B8A6'
 ];
 
-const COMMON_ACCOUNTS = [
-  'Bancolombia', 'Nequi', 'Daviplata', 'Tarjeta Virtual', 'Efectivo', 'Nu / Nubank', 'Lulo Bank'
-];
-
 export default function App() {
   const [pockets, setPockets] = useState([]);
-  const [activeTab, setActiveTab] = useState('home'); // 'home' | 'copilot' | 'history' | 'settings'
+  const [accounts, setAccounts] = useState([]);
+  const [activeTab, setActiveTab] = useState('home'); // 'home' | 'manage' | 'copilot' | 'history' | 'settings'
+  const [manageSubTab, setManageSubTab] = useState('pockets'); // 'pockets' | 'accounts'
   const [balanceViewMode, setBalanceViewMode] = useState('categories'); // 'categories' | 'accounts'
   
-  // Sheet de Detalle del Bolsillo
+  // Sheet de Detalle del Bolsillo (Inicio)
   const [selectedPocketDetail, setSelectedPocketDetail] = useState(null);
 
   // Modales
@@ -53,6 +54,7 @@ export default function App() {
   const [completedTransferIds, setCompletedTransferIds] = useState({});
 
   const [pocketModalOpen, setPocketModalOpen] = useState(false);
+  const [accountModalOpen, setAccountModalOpen] = useState(false);
   const [expenseModalOpen, setExpenseModalOpen] = useState(false);
   const [payModalOpen, setPayModalOpen] = useState(false);
 
@@ -70,6 +72,14 @@ export default function App() {
     saldo_actual: 0,
     pagado_este_ciclo: false,
     es_compartido: false
+  });
+
+  // Formulario Crear / Editar Cuenta Bancaria
+  const [editingAccount, setEditingAccount] = useState({
+    id: null,
+    nombre: '',
+    tipo: 'banco',
+    color: '#3B82F6'
   });
 
   // Formulario Gasto
@@ -90,7 +100,7 @@ export default function App() {
 
   // Tip Inteligente en Inicio
   const [homeTip, setHomeTip] = useState(() => {
-    return localStorage.getItem('platicapp_home_tip') || 'Al repartir ingresos, dispersa tu dinero en las cuentas correspondientes (Nequi, Bancolombia, etc.) para evitar gastos accidentales.';
+    return localStorage.getItem('platicapp_home_tip') || 'Separa tus fondos en las cuentas bancarias correspondientes apenas recibas ingresos para mantener tus compromisos protegidos.';
   });
   const [isRefreshingTip, setIsRefreshingTip] = useState(false);
 
@@ -111,7 +121,7 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState([
     {
       role: 'assistant',
-      text: 'Hola, soy tu copiloto. Te ayudo a analizar tus bolsillos, los saldos en tus diferentes cuentas bancarias y sugerirte optimizaciones.'
+      text: 'Hola, soy tu copiloto. Puedo analizar la distribución de tus bolsillos, el saldo por cuenta bancaria y ayudarte a tomar mejores decisiones.'
     }
   ]);
   const [isAnswering, setIsAnswering] = useState(false);
@@ -135,13 +145,20 @@ export default function App() {
   };
 
   useEffect(() => {
-    loadPockets();
+    loadData();
   }, []);
 
-  const loadPockets = async () => {
-    const data = await fetchPockets();
-    setPockets(data);
-    initializePercentages(data);
+  const loadData = async () => {
+    const [pocketsData, accountsData] = await Promise.all([
+      fetchPockets(),
+      fetchAccounts()
+    ]);
+    setPockets(pocketsData);
+    setAccounts(accountsData);
+    if (accountsData.length > 0) {
+      setIncomeOriginAccount(accountsData[0].nombre);
+    }
+    initializePercentages(pocketsData);
   };
 
   const initializePercentages = (pocketList) => {
@@ -182,19 +199,27 @@ export default function App() {
 
   // Arqueo: Saldo agrupado por Cuenta Bancaria Física
   const balancesByAccount = useMemo(() => {
-    const accounts = {};
-    pockets.forEach(p => {
-      const accName = p.cuenta_destino || 'Principal';
-      accounts[accName] = (accounts[accName] || 0) + Number(p.saldo_actual || 0);
+    const accountMap = {};
+    accounts.forEach(a => {
+      accountMap[a.nombre] = { ...a, amount: 0, pocketsList: [] };
     });
-    return Object.entries(accounts).map(([name, amount]) => ({
-      name,
-      amount,
-      percentage: totalBalance > 0 ? Math.round((amount / totalBalance) * 100) : 0
-    })).sort((a, b) => b.amount - a.amount);
-  }, [pockets, totalBalance]);
 
-  // Bolsillos ordenados: los pagados bajan al final automáticamente
+    pockets.forEach(p => {
+      const accName = p.cuenta_destino || 'Bancolombia';
+      if (!accountMap[accName]) {
+        accountMap[accName] = { id: `acc-custom-${accName}`, nombre: accName, tipo: 'cuenta', color: '#64748B', amount: 0, pocketsList: [] };
+      }
+      accountMap[accName].amount += Number(p.saldo_actual || 0);
+      accountMap[accName].pocketsList.push(p);
+    });
+
+    return Object.values(accountMap).map(acc => ({
+      ...acc,
+      percentage: totalBalance > 0 ? Math.round((acc.amount / totalBalance) * 100) : 0
+    })).sort((a, b) => b.amount - a.amount);
+  }, [pockets, accounts, totalBalance]);
+
+  // Bolsillos ordenados para Inicio: los pagados bajan al final automáticamente
   const sortedPockets = useMemo(() => {
     return [...pockets].sort((a, b) => {
       if (a.pagado_este_ciclo && !b.pagado_este_ciclo) return 1;
@@ -294,7 +319,7 @@ export default function App() {
     }
   };
 
-  // Confirmar y Guardar Reparto + GENERAR HOJA DE TRASLADOS
+  // Confirmar y Guardar Reparto + HOJA DE TRASLADOS
   const handleConfirmAllocation = async () => {
     if (!isPercentageValid || incomingAmount <= 0) return;
 
@@ -307,12 +332,11 @@ export default function App() {
       
       allocationsSummary.push({ 
         pocketNombre: p.nombre, 
-        cuenta: p.cuenta_destino || 'Principal',
+        cuenta: p.cuenta_destino || 'Bancolombia',
         porcentaje: pct, 
         monto: addedMoney 
       });
 
-      // Si el bolsillo tiene asignada una cuenta y recibe dinero, generar ítem en la Hoja de Traslados
       if (addedMoney > 0) {
         transfersGenerated.push({
           id: `tr-${p.id}-${Date.now()}`,
@@ -349,7 +373,6 @@ export default function App() {
     confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
     setIncomeModalOpen(false);
 
-    // Abrir Hoja de Traslados si hay transferencias que hacer
     if (transfersGenerated.length > 0) {
       setPendingTransfers(transfersGenerated);
       setCompletedTransferIds({});
@@ -394,7 +417,7 @@ export default function App() {
     setPayModalOpen(false);
     setSelectedPocketDetail(null);
     confetti({ particleCount: 30, spread: 50 });
-    showToast(`${selectedPocketDetail.nombre} pagado desde ${selectedPocketDetail.cuenta_destino || 'cuenta'}`);
+    showToast(`${selectedPocketDetail.nombre} pagado`);
   };
 
   // Reiniciar ciclo manualmente
@@ -477,6 +500,7 @@ export default function App() {
   // Crear bolsillo con color aleatorio y cuenta por defecto
   const handleOpenNewPocketModal = () => {
     const randomColor = COLOR_PALETTE[Math.floor(Math.random() * COLOR_PALETTE.length)];
+    const defaultAcc = accounts[0]?.nombre || 'Bancolombia';
     setEditingPocket({
       id: null,
       nombre: '',
@@ -486,7 +510,7 @@ export default function App() {
       meta_monto: '',
       dia_vencimiento: '',
       dia_vencimiento_2: '',
-      cuenta_destino: 'Nequi',
+      cuenta_destino: defaultAcc,
       saldo_actual: 0,
       pagado_este_ciclo: false,
       es_compartido: false
@@ -524,6 +548,24 @@ export default function App() {
     initializePercentages(updated);
     setSelectedPocketDetail(null);
     showToast('Bolsillo eliminado');
+  };
+
+  // Guardar Cuenta Bancaria
+  const handleSaveAccount = async (e) => {
+    e.preventDefault();
+    if (!editingAccount.nombre.trim()) return;
+
+    const updated = await saveAccount(editingAccount);
+    setAccounts(updated);
+    setAccountModalOpen(false);
+    showToast('Cuenta bancaria guardada');
+  };
+
+  const handleDeleteAccount = async (id) => {
+    if (!window.confirm('¿Eliminar esta cuenta bancaria? Los bolsillos asociados seguirán existiendo.')) return;
+    const updated = await deleteAccount(id);
+    setAccounts(updated);
+    showToast('Cuenta eliminada');
   };
 
   // Copiloto: Análisis
@@ -593,7 +635,7 @@ export default function App() {
 
   // Exportar respaldo JSON
   const handleExportBackup = () => {
-    const data = { pockets, history, exportedAt: new Date().toISOString() };
+    const data = { pockets, accounts, history, exportedAt: new Date().toISOString() };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -617,6 +659,10 @@ export default function App() {
           await savePocketsBatch(parsed.pockets);
           initializePercentages(parsed.pockets);
         }
+        if (parsed.accounts && Array.isArray(parsed.accounts)) {
+          setAccounts(parsed.accounts);
+          localStorage.setItem('platicapp_accounts_v1', JSON.stringify(parsed.accounts));
+        }
         if (parsed.history && Array.isArray(parsed.history)) {
           setHistory(parsed.history);
           localStorage.setItem('platicapp_history_v3', JSON.stringify(parsed.history));
@@ -639,13 +685,13 @@ export default function App() {
         </div>
       )}
 
-      {/* HEADER LIMPIO CON NOMBRE DECORADO */}
+      {/* HEADER LIMPIO */}
       <header className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-1.5">
             <span className="text-emerald-400">MI</span> Platicapp
           </h1>
-          <p className="text-xs text-slate-400">Bolsillos sincronizados con tus cuentas reales</p>
+          <p className="text-xs text-slate-400">Bolsillos y cuentas en sincronía</p>
         </div>
 
         <button 
@@ -658,7 +704,7 @@ export default function App() {
       </header>
 
       {/* ======================================================== */}
-      {/* 1. INICIO (HOME - SALDOS, ARQUEO POR CUENTAS Y BOLSILLOS) */}
+      {/* 1. INICIO (HOME - OPERATIVO Y LIMPIO) */}
       {/* ======================================================== */}
       {activeTab === 'home' && (
         <div className="space-y-4 animate-in fade-in duration-200">
@@ -726,9 +772,9 @@ export default function App() {
               <div className="space-y-1.5 pt-1 animate-in fade-in">
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   {balancesByAccount.map(acc => (
-                    <div key={acc.name} className="p-2 rounded-xl bg-slate-950/70 border border-slate-800/80 flex items-center justify-between">
+                    <div key={acc.nombre} className="p-2 rounded-xl bg-slate-950/70 border border-slate-800/80 flex items-center justify-between">
                       <div className="truncate pr-1">
-                        <span className="text-slate-400 text-[10px] block truncate">{acc.name}</span>
+                        <span className="text-slate-400 text-[10px] block truncate">{acc.nombre}</span>
                         <span className="font-bold text-white text-xs">${acc.amount.toLocaleString('es-CO')}</span>
                       </div>
                       <span className="text-[10px] font-semibold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded">
@@ -819,7 +865,6 @@ export default function App() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-semibold text-sm text-white">{pocket.nombre}</h3>
                           
-                          {/* Badge de Cuenta Bancaria / Destino */}
                           <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700/60">
                             {pocket.cuenta_destino || 'Bancolombia'}
                           </span>
@@ -852,7 +897,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Barra sutil de progreso */}
                   {hasTarget && (
                     <div className="w-full h-1 bg-slate-800/70 rounded-full overflow-hidden">
                       <div 
@@ -865,7 +909,6 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* Deuda Interna */}
                   {pocket.deuda_interna && pocket.deuda_interna.monto > 0 && (
                     <div className="text-[11px] text-amber-400 flex items-center gap-1 font-medium pt-0.5">
                       <AlertCircle className="w-3 h-3" />
@@ -880,7 +923,165 @@ export default function App() {
       )}
 
       {/* ======================================================== */}
-      {/* 2. COPILOTO FINANCIERO */}
+      {/* 2. GESTIÓN: CONFIGURACIÓN DE BOLSILLOS Y CUENTAS */}
+      {/* ======================================================== */}
+      {activeTab === 'manage' && (
+        <div className="space-y-4 animate-in fade-in duration-150">
+          <div>
+            <h2 className="text-xl font-bold text-white">Configurar Estructura</h2>
+            <p className="text-xs text-slate-400">Gestiona tus bolsillos de presupuesto y tus cuentas bancarias</p>
+          </div>
+
+          {/* Selector de Sub-Pestaña: Bolsillos vs Cuentas */}
+          <div className="flex p-1 bg-slate-900 border border-slate-800 rounded-2xl text-xs font-semibold">
+            <button
+              onClick={() => setManageSubTab('pockets')}
+              className={`flex-1 py-2 rounded-xl transition ${
+                manageSubTab === 'pockets' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Bolsillos ({pockets.length})
+            </button>
+            <button
+              onClick={() => setManageSubTab('accounts')}
+              className={`flex-1 py-2 rounded-xl transition ${
+                manageSubTab === 'accounts' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Cuentas Bancarias ({accounts.length})
+            </button>
+          </div>
+
+          {/* SUB-PESTAÑA A: GESTIÓN DE BOLSILLOS */}
+          {manageSubTab === 'pockets' && (
+            <div className="space-y-3 animate-in fade-in">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-400">Organiza metas y vencimientos</span>
+                <button
+                  onClick={handleOpenNewPocketModal}
+                  className="py-1.5 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Nuevo Bolsillo</span>
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                {pockets.map(p => (
+                  <div key={p.id} className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-3.5 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
+                      <div>
+                        <h4 className="font-semibold text-xs text-white">{p.nombre}</h4>
+                        <div className="text-[11px] text-slate-400 space-x-1.5 mt-0.5">
+                          <span className="capitalize">{p.periodicidad || 'Mensual'}</span>
+                          <span>· {p.cuenta_destino || 'Bancolombia'}</span>
+                          {p.meta_monto > 0 && <span>· Meta: ${Number(p.meta_monto).toLocaleString('es-CO')}</span>}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => {
+                          setEditingPocket(p);
+                          setPocketModalOpen(true);
+                        }}
+                        className="p-2 text-slate-400 hover:text-white rounded-lg transition"
+                        title="Editar"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeletePocket(p.id)}
+                        className="p-2 text-slate-400 hover:text-rose-400 rounded-lg transition"
+                        title="Eliminar"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* SUB-PESTAÑA B: GESTIÓN DE CUENTAS BANCARIAS */}
+          {manageSubTab === 'accounts' && (
+            <div className="space-y-3 animate-in fade-in">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-400">Cuentas donde vive tu dinero físico</span>
+                <button
+                  onClick={() => {
+                    setEditingAccount({ id: null, nombre: '', tipo: 'banco', color: '#3B82F6' });
+                    setAccountModalOpen(true);
+                  }}
+                  className="py-1.5 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Nueva Cuenta</span>
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                {balancesByAccount.map(acc => (
+                  <div key={acc.nombre} className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <Building2 className="w-4 h-4 text-emerald-400" />
+                        <div>
+                          <h4 className="font-semibold text-sm text-white">{acc.nombre}</h4>
+                          <span className="text-[11px] text-slate-400 capitalize">{acc.tipo || 'Cuenta'}</span>
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <span className="font-bold text-sm text-white">${acc.amount.toLocaleString('es-CO')}</span>
+                        <span className="text-[10px] text-slate-400 block font-medium">({acc.percentage}% del total)</span>
+                      </div>
+                    </div>
+
+                    {/* Bolsillos asociados a esta cuenta */}
+                    <div className="pt-2 border-t border-slate-800/60 flex items-center justify-between text-[11px] text-slate-400">
+                      <div className="truncate pr-2">
+                        <span>Bolsillos: </span>
+                        <span className="text-slate-300">
+                          {acc.pocketsList?.length > 0 
+                            ? acc.pocketsList.map(p => p.nombre).join(', ') 
+                            : 'Ninguno asignado'}
+                        </span>
+                      </div>
+
+                      <div className="flex gap-1 flex-shrink-0">
+                        <button
+                          onClick={() => {
+                            setEditingAccount(acc);
+                            setAccountModalOpen(true);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-white rounded"
+                          title="Editar"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteAccount(acc.id)}
+                          className="p-1.5 text-slate-400 hover:text-rose-400 rounded"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 3. COPILOTO FINANCIERO */}
       {/* ======================================================== */}
       {activeTab === 'copilot' && (
         <div className="space-y-5 animate-in fade-in duration-150">
@@ -975,7 +1176,7 @@ export default function App() {
       )}
 
       {/* ======================================================== */}
-      {/* 3. MOVIMIENTOS (CON FILTROS Y BÚSQUEDA) */}
+      {/* 4. MOVIMIENTOS (CON FILTROS Y BÚSQUEDA) */}
       {/* ======================================================== */}
       {activeTab === 'history' && (
         <div className="space-y-4 animate-in fade-in duration-150">
@@ -1087,12 +1288,12 @@ export default function App() {
       )}
 
       {/* ======================================================== */}
-      {/* 4. AJUSTES (LIMPIO, AMIGABLE Y ÚTIL) */}
+      {/* 5. AJUSTES (PREFERENCIAS, MONEDA, RESPALDOS) */}
       {/* ======================================================== */}
       {activeTab === 'settings' && (
         <div className="space-y-6 animate-in fade-in duration-150">
           <div>
-            <h2 className="text-xl font-bold text-white">Ajustes</h2>
+            <h2 className="text-xl font-bold text-white">Ajustes del Sistema</h2>
             <p className="text-xs text-slate-400">Preferencias, copia de seguridad y conexión</p>
           </div>
 
@@ -1142,7 +1343,7 @@ export default function App() {
             {/* Respaldos */}
             <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-5 space-y-3">
               <h3 className="font-semibold text-sm text-white">Copia de Seguridad</h3>
-              <p className="text-[11px] text-slate-400">Descarga o restaura tus bolsillos y cuentas en cualquier momento.</p>
+              <p className="text-[11px] text-slate-400">Descarga o restaura tus bolsillos, cuentas y movimientos en cualquier momento.</p>
 
               <div className="flex gap-2 pt-1">
                 <button
@@ -1173,12 +1374,12 @@ export default function App() {
       )}
 
       {/* ======================================================== */}
-      {/* MENÚ INFERIOR (APPLE HIG - 4 PESTAÑAS) */}
+      {/* MENÚ INFERIOR (APPLE HIG - 5 PESTAÑAS) */}
       {/* ======================================================== */}
-      <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-slate-950/85 backdrop-blur-xl border-t border-slate-800/70 z-40 px-3 py-2 flex items-center justify-around">
+      <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-slate-950/85 backdrop-blur-xl border-t border-slate-800/70 z-40 px-2 py-2 flex items-center justify-around">
         <button
           onClick={() => setActiveTab('home')}
-          className={`flex flex-col items-center gap-1 py-1 px-4 transition-colors ${
+          className={`flex flex-col items-center gap-1 py-1 px-2.5 transition-colors ${
             activeTab === 'home' ? 'text-emerald-400 font-semibold' : 'text-slate-400 hover:text-slate-200'
           }`}
         >
@@ -1187,8 +1388,18 @@ export default function App() {
         </button>
 
         <button
+          onClick={() => setActiveTab('manage')}
+          className={`flex flex-col items-center gap-1 py-1 px-2.5 transition-colors ${
+            activeTab === 'manage' ? 'text-emerald-400 font-semibold' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Layers className="w-5 h-5" />
+          <span className="text-[10px]">Estructura</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('copilot')}
-          className={`flex flex-col items-center gap-1 py-1 px-4 transition-colors ${
+          className={`flex flex-col items-center gap-1 py-1 px-2.5 transition-colors ${
             activeTab === 'copilot' ? 'text-emerald-400 font-semibold' : 'text-slate-400 hover:text-slate-200'
           }`}
         >
@@ -1198,7 +1409,7 @@ export default function App() {
 
         <button
           onClick={() => setActiveTab('history')}
-          className={`flex flex-col items-center gap-1 py-1 px-4 transition-colors ${
+          className={`flex flex-col items-center gap-1 py-1 px-2.5 transition-colors ${
             activeTab === 'history' ? 'text-emerald-400 font-semibold' : 'text-slate-400 hover:text-slate-200'
           }`}
         >
@@ -1208,7 +1419,7 @@ export default function App() {
 
         <button
           onClick={() => setActiveTab('settings')}
-          className={`flex flex-col items-center gap-1 py-1 px-4 transition-colors ${
+          className={`flex flex-col items-center gap-1 py-1 px-2.5 transition-colors ${
             activeTab === 'settings' ? 'text-emerald-400 font-semibold' : 'text-slate-400 hover:text-slate-200'
           }`}
         >
@@ -1253,9 +1464,7 @@ export default function App() {
               )}
             </div>
 
-            {/* Acciones principales del Bolsillo */}
             <div className="space-y-2 pt-1">
-              {/* Pagar si es compromiso */}
               {selectedPocketDetail.tipo === 'compromiso_fijo' && Number(selectedPocketDetail.saldo_actual) > 0 && !selectedPocketDetail.pagado_este_ciclo && (
                 <button
                   onClick={() => setPayModalOpen(true)}
@@ -1312,7 +1521,7 @@ export default function App() {
       )}
 
       {/* ======================================================== */}
-      {/* MODAL: ENTRAR DINERO (REPARTO EN %) */}
+      {/* MODAL: ENTRAR DINERO */}
       {/* ======================================================== */}
       {incomeModalOpen && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
@@ -1358,8 +1567,8 @@ export default function App() {
                     onChange={(e) => setIncomeOriginAccount(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-2 text-xs text-white mt-1"
                   >
-                    {COMMON_ACCOUNTS.map(acc => (
-                      <option key={acc} value={acc}>{acc}</option>
+                    {accounts.map(acc => (
+                      <option key={acc.id} value={acc.nombre}>{acc.nombre}</option>
                     ))}
                   </select>
                 </div>
@@ -1437,7 +1646,7 @@ export default function App() {
       )}
 
       {/* ======================================================== */}
-      {/* HOJA DE TRASLADOS (CHECKLIST DE TRANSFERENCIAS INMEDIATAS) */}
+      {/* HOJA DE TRASLADOS */}
       {/* ======================================================== */}
       {transfersSheetOpen && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
@@ -1625,7 +1834,7 @@ export default function App() {
       )}
 
       {/* ======================================================== */}
-      {/* MODAL: CREAR / EDITAR BOLSILLO CON CUENTA BANCARIA */}
+      {/* MODAL: CREAR / EDITAR BOLSILLO */}
       {/* ======================================================== */}
       {pocketModalOpen && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
@@ -1641,7 +1850,7 @@ export default function App() {
 
             <form onSubmit={handleSavePocket} className="space-y-3.5">
               <div>
-                <label className="text-xs text-slate-400">Nombre</label>
+                <label className="text-xs text-slate-400">Nombre del bolsillo</label>
                 <input
                   type="text"
                   value={editingPocket.nombre}
@@ -1652,29 +1861,18 @@ export default function App() {
                 />
               </div>
 
-              {/* Cuenta o Destino Bancario */}
+              {/* Cuenta Bancaria Asignada */}
               <div>
-                <label className="text-xs text-slate-400">¿A qué cuenta pasas esta plata?</label>
-                <div className="flex gap-2 mt-1">
-                  <select
-                    value={editingPocket.cuenta_destino}
-                    onChange={(e) => setEditingPocket(prev => ({ ...prev, cuenta_destino: e.target.value }))}
-                    className="flex-1 bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white"
-                  >
-                    {COMMON_ACCOUNTS.map(acc => (
-                      <option key={acc} value={acc}>{acc}</option>
-                    ))}
-                    <option value="Otra">Otra cuenta...</option>
-                  </select>
-                </div>
-                {editingPocket.cuenta_destino === 'Otra' && (
-                  <input
-                    type="text"
-                    placeholder="Escribe el nombre de la cuenta..."
-                    onChange={(e) => setEditingPocket(prev => ({ ...prev, cuenta_destino: e.target.value }))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-1.5 px-3 text-xs text-white mt-1.5"
-                  />
-                )}
+                <label className="text-xs text-slate-400">¿En qué cuenta bancaria vive esta plata?</label>
+                <select
+                  value={editingPocket.cuenta_destino}
+                  onChange={(e) => setEditingPocket(prev => ({ ...prev, cuenta_destino: e.target.value }))}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white mt-1"
+                >
+                  {accounts.map(acc => (
+                    <option key={acc.id} value={acc.nombre}>{acc.nombre}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -1780,6 +1978,59 @@ export default function App() {
                 className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition mt-2"
               >
                 {editingPocket.id ? 'Guardar cambios' : 'Crear bolsillo'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL: CREAR / EDITAR CUENTA BANCARIA */}
+      {/* ======================================================== */}
+      {accountModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-5 sm:p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="font-bold text-white text-base">
+                {editingAccount.id ? 'Editar Cuenta' : 'Nueva Cuenta Bancaria'}
+              </h3>
+              <button onClick={() => setAccountModalOpen(false)} className="text-slate-400 hover:text-white p-1">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveAccount} className="space-y-3.5">
+              <div>
+                <label className="text-xs text-slate-400">Nombre de la cuenta o app</label>
+                <input
+                  type="text"
+                  value={editingAccount.nombre}
+                  onChange={(e) => setEditingAccount(prev => ({ ...prev, nombre: e.target.value }))}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none mt-1"
+                  placeholder="ej. Nequi, Bancolombia, Nu, Lulo..."
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-400">Tipo de cuenta</label>
+                <select
+                  value={editingAccount.tipo}
+                  onChange={(e) => setEditingAccount(prev => ({ ...prev, tipo: e.target.value }))}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white mt-1"
+                >
+                  <option value="banco">Cuenta de Ahorros / Corriente</option>
+                  <option value="billetera">Billetera Digital (Nequi, Daviplata)</option>
+                  <option value="tarjeta">Tarjeta Débito / Virtual</option>
+                  <option value="efectivo">Efectivo en mano</option>
+                </select>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition mt-2"
+              >
+                {editingAccount.id ? 'Guardar Cambios' : 'Crear Cuenta'}
               </button>
             </form>
           </div>

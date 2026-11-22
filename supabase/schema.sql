@@ -21,7 +21,17 @@ DROP TABLE IF EXISTS public.pockets CASCADE;
 -- TABLAS PRINCIPALES
 -- ==============================================================================
 
--- 3. Tabla de Bolsillos (Pockets)
+-- 3. Tabla de Cuentas Bancarias Reales (Accounts)
+CREATE TABLE public.accounts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    nombre TEXT NOT NULL,
+    tipo TEXT DEFAULT 'banco', -- banco, billetera, tarjeta, efectivo
+    color TEXT DEFAULT '#3B82F6',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 4. Tabla de Bolsillos (Pockets)
 CREATE TABLE public.pockets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -120,6 +130,7 @@ CREATE TABLE public.chat_history (
 -- Soporta bolsillos personales y compartidos entre parejas
 -- ==============================================================================
 
+ALTER TABLE public.accounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pockets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pocket_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.incomes ENABLE ROW LEVEL SECURITY;
@@ -127,6 +138,10 @@ ALTER TABLE public.allocations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.expenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.transfers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chat_history ENABLE ROW LEVEL SECURITY;
+
+-- Políticas de Cuentas
+CREATE POLICY "Users can manage own accounts" ON public.accounts
+    FOR ALL USING (auth.uid() = user_id);
 
 -- Políticas de Pockets: El dueño o cualquier miembro del bolsillo compartido puede ver y modificar
 CREATE POLICY "Users can manage own pockets or shared members" ON public.pockets
