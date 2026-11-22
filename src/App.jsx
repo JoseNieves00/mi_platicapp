@@ -27,11 +27,12 @@ import {
   Wallet,
   LogIn,
   LogOut,
-  User as UserIcon
+  User as UserIcon,
+  ArrowRight
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { suggestAllocationWithAI, analyzeFinancesWithAI } from './services/ai';
-import { fetchPockets, savePocket, deletePocket, savePocketsBatch, clearAllLocalUserData } from './services/pockets';
+import { fetchPockets, savePocket, deletePocket, savePocketsBatch, clearAllLocalUserData, resetAllUserDataAndCloud } from './services/pockets';
 import { fetchAccounts, saveAccount, deleteAccount } from './services/accounts';
 import { getStoredConfig, saveStoredConfig } from './services/config';
 import { signInWithGoogle, signOutUser, getCurrentUser, subscribeToAuthChanges } from './services/auth';
@@ -74,6 +75,9 @@ export default function App() {
   const [accountModalOpen, setAccountModalOpen] = useState(false);
   const [expenseModalOpen, setExpenseModalOpen] = useState(false);
   const [payModalOpen, setPayModalOpen] = useState(false);
+  const [resetModalOpen, setResetModalOpen] = useState(false);
+  const [resetStep, setResetStep] = useState(1);
+  const [isResetting, setIsResetting] = useState(false);
 
   // Formulario Crear / Editar Bolsillo
   const [editingPocket, setEditingPocket] = useState({
@@ -206,12 +210,22 @@ export default function App() {
     }
   };
 
-  const handleResetAllData = () => {
-    if (window.confirm('¿Deseas reiniciar los datos locales para empezar tus bolsillos reales desde cero?')) {
-      clearAllLocalUserData();
+  const handleExecuteFullReset = async () => {
+    try {
+      setIsResetting(true);
+      await resetAllUserDataAndCloud();
       setPockets([]);
       setHistory([]);
-      showToast('Espacio reiniciado a cero');
+      setResetModalOpen(false);
+      setResetStep(1);
+      showToast('App restablecida de fábrica');
+      setTimeout(() => {
+        window.location.reload();
+      }, 400);
+    } catch {
+      showToast('Error al reiniciar datos');
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -1557,21 +1571,27 @@ export default function App() {
               </div>
             </div>
 
-            {/* Zona de Inicio Limpio */}
-            <div className="bg-slate-900/40 border border-slate-800/80 rounded-3xl p-5 space-y-2.5">
+            {/* Zona de Peligro / Restablecer de Fábrica */}
+            <div className="bg-rose-950/20 border border-rose-900/40 rounded-3xl p-5 space-y-3">
               <div>
-                <h3 className="font-semibold text-xs text-slate-300">Empezar desde cero</h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Limpia los bolsillos y movimientos locales para configurar tus finanzas reales desde el inicio.
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                  <h3 className="font-semibold text-xs text-rose-300 uppercase tracking-wider">Zona de Peligro</h3>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Borra permanentemente todos los bolsillos, cuentas y movimientos tanto locales como en Supabase para arrancar desde cero absoluto.
                 </p>
               </div>
               <button
                 type="button"
-                onClick={handleResetAllData}
-                className="py-2.5 px-3.5 rounded-xl bg-slate-950 border border-slate-800 text-rose-400 hover:text-rose-300 hover:border-rose-900/50 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95"
+                onClick={() => {
+                  setResetStep(1);
+                  setResetModalOpen(true);
+                }}
+                className="w-full py-2.5 px-3.5 rounded-xl bg-rose-950/60 hover:bg-rose-900/60 border border-rose-800/80 text-rose-300 text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Limpiar y reiniciar datos locales</span>
+                <span>Restablecer app de fábrica</span>
               </button>
             </div>
 
@@ -2245,6 +2265,111 @@ export default function App() {
                 {editingAccount.id ? 'Guardar Cambios' : 'Crear Cuenta'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL DOBLE CONFIRMACIÓN: RESTABLECER DE FÁBRICA */}
+      {/* ======================================================== */}
+      {resetModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-rose-900/40 rounded-3xl p-6 w-full max-w-md shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+            <button
+              onClick={() => {
+                setResetModalOpen(false);
+                setResetStep(1);
+              }}
+              className="absolute top-5 right-5 p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {resetStep === 1 ? (
+              <div className="space-y-4 pt-1">
+                <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
+                  <AlertCircle className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-rose-400">Paso 1 de 2: Confirmación</div>
+                  <h3 className="text-lg font-bold text-white mt-1">¿Restablecer datos de fábrica?</h3>
+                  <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                    Esta acción eliminará de forma permanente todos tus bolsillos, cuentas bancarias e historial de movimientos tanto en este dispositivo como en la nube Supabase.
+                  </p>
+                </div>
+
+                <div className="bg-slate-950/60 rounded-2xl p-3.5 border border-slate-800 text-[11px] text-slate-300 space-y-1.5">
+                  <div className="flex items-center gap-2 text-rose-300">
+                    <span>⚠️</span>
+                    <span>Se limpiarán todos los bolsillos y saldos a cero</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-slate-400">
+                    <span>🔒</span>
+                    <span>Tus llaves de API y configuración se conservarán</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-2.5 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setResetModalOpen(false)}
+                    className="flex-1 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs transition"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setResetStep(2)}
+                    className="flex-1 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95"
+                  >
+                    <span>Continuar</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4 pt-1">
+                <div className="w-12 h-12 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400">
+                  <Trash2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-rose-400">Paso 2 de 2: Confirmación Definitiva</div>
+                  <h3 className="text-lg font-bold text-white mt-1">¿Estás completamente seguro?</h3>
+                  <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                    No habrá vuelta atrás. Tu aplicación quedará en $0 y sin bolsillos para que configures tus finanzas reales desde cero.
+                  </p>
+                </div>
+
+                <div className="flex gap-2.5 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setResetStep(1)}
+                    disabled={isResetting}
+                    className="flex-1 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs transition"
+                  >
+                    Atrás
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExecuteFullReset}
+                    disabled={isResetting}
+                    className="flex-1 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow-lg shadow-rose-950/50"
+                  >
+                    {isResetting ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>Borrando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-4 h-4" />
+                        <span>Sí, restablecer todo</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

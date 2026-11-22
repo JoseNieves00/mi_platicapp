@@ -19,12 +19,50 @@ function generateUUID() {
 
 export const DEFAULT_POCKETS = [];
 
+export async function resetAllUserDataAndCloud() {
+  // 1. Borrar en Supabase si está conectado
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('pockets').delete().eq('user_id', user.id);
+        await supabase.from('incomes').delete().eq('user_id', user.id);
+        await supabase.from('expenses').delete().eq('user_id', user.id);
+        await supabase.from('transfers').delete().eq('user_id', user.id);
+      } else {
+        await supabase.from('pockets').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      }
+    } catch (e) {
+      console.warn('Error al limpiar Supabase:', e);
+    }
+  }
+
+  // 2. Limpiar todo en localStorage preservando credenciales
+  if (typeof window !== 'undefined' && window.localStorage) {
+    const preserveKeys = {
+      'platicapp_supabase_url': localStorage.getItem('platicapp_supabase_url'),
+      'platicapp_supabase_key': localStorage.getItem('platicapp_supabase_key'),
+      'platicapp_groq_key': localStorage.getItem('platicapp_groq_key'),
+      'platicapp_gemini_key': localStorage.getItem('platicapp_gemini_key'),
+      'platicapp_ai_provider': localStorage.getItem('platicapp_ai_provider'),
+      'platicapp_currency': localStorage.getItem('platicapp_currency')
+    };
+
+    localStorage.clear();
+
+    Object.entries(preserveKeys).forEach(([k, v]) => {
+      if (v) localStorage.setItem(k, v);
+    });
+
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([]));
+    localStorage.setItem('platicapp_history_real_v1', JSON.stringify([]));
+  }
+
+  return [];
+}
+
 export function clearAllLocalUserData() {
-  localStorage.removeItem('platicapp_pockets_real_v1');
-  localStorage.removeItem('platicapp_pockets_v4');
-  localStorage.removeItem('platicapp_pockets_v3');
-  localStorage.removeItem('platicapp_history_real_v1');
-  localStorage.removeItem('platicapp_history_v3');
+  return resetAllUserDataAndCloud();
 }
 
 export async function fetchPockets() {
