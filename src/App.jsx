@@ -928,8 +928,8 @@ export default function App() {
       {activeTab === 'manage' && (
         <div className="space-y-4 animate-in fade-in duration-150">
           <div>
-            <h2 className="text-xl font-bold text-white">Configurar Estructura</h2>
-            <p className="text-xs text-slate-400">Gestiona tus bolsillos de presupuesto y tus cuentas bancarias</p>
+            <h2 className="text-xl font-bold text-white">Bolsillos & Cuentas</h2>
+            <p className="text-xs text-slate-400">Configura tus bolsillos, compromisos y cuentas bancarias destino</p>
           </div>
 
           {/* Selector de Sub-Pestaña: Bolsillos vs Cuentas */}
@@ -1389,12 +1389,12 @@ export default function App() {
 
         <button
           onClick={() => setActiveTab('manage')}
-          className={`flex flex-col items-center gap-1 py-1 px-2.5 transition-colors ${
+          className={`flex flex-col items-center gap-1 py-1 px-1.5 transition-colors ${
             activeTab === 'manage' ? 'text-emerald-400 font-semibold' : 'text-slate-400 hover:text-slate-200'
           }`}
         >
-          <Layers className="w-5 h-5" />
-          <span className="text-[10px]">Estructura</span>
+          <Wallet className="w-5 h-5" />
+          <span className="text-[10px] whitespace-nowrap">Bolsillos & Cuentas</span>
         </button>
 
         <button
