@@ -1,15 +1,21 @@
 import { createClient } from '@supabase/supabase-js';
+import { getStoredConfig } from '../services/config';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+export function getSupabaseClient() {
+  const { supabaseUrl, supabaseKey } = getStoredConfig();
+  const isConfigured = Boolean(
+    supabaseUrl && 
+    supabaseKey && 
+    !supabaseUrl.includes('tu-proyecto') &&
+    supabaseUrl.startsWith('https://')
+  );
 
-export const isSupabaseConfigured = Boolean(
-  supabaseUrl && 
-  supabaseAnonKey && 
-  !supabaseUrl.includes('tu-proyecto') &&
-  supabaseUrl.startsWith('https://')
-);
+  return {
+    client: isConfigured ? createClient(supabaseUrl, supabaseKey) : null,
+    isConfigured
+  };
+}
 
-export const supabase = isSupabaseConfigured
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : null;
+const initial = getSupabaseClient();
+export const supabase = initial.client;
+export const isSupabaseConfigured = initial.isConfigured;
