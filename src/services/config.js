@@ -11,7 +11,7 @@ export function getStoredConfig() {
 
   return {
     supabaseUrl: localSupabaseUrl || import.meta.env.VITE_SUPABASE_URL || '',
-    supabaseKey: localSupabaseKey || import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+    supabaseKey: localSupabaseKey || import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '',
     groqKey: localGroqKey || import.meta.env.VITE_GROQ_API_KEY || '',
     geminiKey: localGeminiKey || import.meta.env.VITE_GEMINI_API_KEY || '',
     aiProvider: localAiProvider

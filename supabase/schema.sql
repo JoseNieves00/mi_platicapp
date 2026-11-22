@@ -143,7 +143,11 @@ ALTER TABLE public.chat_history ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can manage own accounts" ON public.accounts
     FOR ALL USING (auth.uid() = user_id);
 
--- Políticas de Pockets: El dueño o cualquier miembro del bolsillo compartido puede ver y modificar
+-- 1. Pocket members: acceso directo por user_id (evita recursión infinita de políticas)
+CREATE POLICY "Users can view and manage pocket members" ON public.pocket_members
+    FOR ALL USING (auth.uid() = user_id);
+
+-- 2. Pockets: El dueño o cualquier miembro del bolsillo compartido puede ver y modificar
 CREATE POLICY "Users can manage own pockets or shared members" ON public.pockets
     FOR ALL USING (
         auth.uid() = user_id OR
@@ -151,16 +155,6 @@ CREATE POLICY "Users can manage own pockets or shared members" ON public.pockets
             SELECT 1 FROM public.pocket_members 
             WHERE pocket_members.pocket_id = pockets.id 
             AND pocket_members.user_id = auth.uid()
-        )
-    );
-
-CREATE POLICY "Users can view and manage pocket members" ON public.pocket_members
-    FOR ALL USING (
-        auth.uid() = user_id OR
-        EXISTS (
-            SELECT 1 FROM public.pockets 
-            WHERE pockets.id = pocket_members.pocket_id 
-            AND pockets.user_id = auth.uid()
         )
     );
 
