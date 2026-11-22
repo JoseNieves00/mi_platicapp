@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Home, 
   Plus, 
@@ -17,10 +17,12 @@ import {
   RotateCcw,
   Download,
   Upload,
-  ArrowRight
+  Search,
+  Filter,
+  PieChart
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { suggestAllocationWithAI, analyzeFinancesWithAI } from './services/ai';
+import { suggestAllocationWithAI, analyzeFinancesWithAI, getAIStatus } from './services/ai';
 import { fetchPockets, savePocket, deletePocket, savePocketsBatch } from './services/pockets';
 import { getStoredConfig, saveStoredConfig } from './services/config';
 
@@ -33,7 +35,7 @@ export default function App() {
   const [pockets, setPockets] = useState([]);
   const [activeTab, setActiveTab] = useState('home'); // 'home' | 'copilot' | 'history' | 'settings'
   
-  // Sheet de Detalle del Bolsillo (Al tocar un bolsillo en Inicio)
+  // Sheet de Detalle del Bolsillo
   const [selectedPocketDetail, setSelectedPocketDetail] = useState(null);
 
   // Modales
@@ -67,6 +69,16 @@ export default function App() {
       return [];
     }
   });
+
+  // Filtros de Movimientos
+  const [historyFilter, setHistoryFilter] = useState('all'); // 'all' | 'ingreso' | 'gasto' | 'pago_compromiso'
+  const [historySearch, setHistorySearch] = useState('');
+
+  // Tip Inteligente en Inicio
+  const [homeTip, setHomeTip] = useState(() => {
+    return localStorage.getItem('platicapp_home_tip') || 'Prioriza completar los compromisos que vencen en los próximos 10 días para mantener tu tranquilidad.';
+  });
+  const [isRefreshingTip, setIsRefreshingTip] = useState(false);
 
   // Estados para "Entrar Dinero"
   const [incomingAmount, setIncomingAmount] = useState(800000);
@@ -134,12 +146,46 @@ export default function App() {
   const currentTotalPercentage = Object.values(percentages).reduce((acc, val) => acc + Number(val || 0), 0);
   const isPercentageValid = Math.abs(currentTotalPercentage - 100) < 0.01;
 
-  // Los compromisos pagados bajan al final automáticamente
-  const sortedPockets = [...pockets].sort((a, b) => {
-    if (a.pagado_este_ciclo && !b.pagado_este_ciclo) return 1;
-    if (!a.pagado_este_ciclo && b.pagado_este_ciclo) return -1;
-    return 0;
-  });
+  // Distribución del dinero actual en porcentajes por categoría
+  const distributionByCategory = useMemo(() => {
+    if (totalBalance <= 0) return { compromisos: 0, diario: 0, reserva: 0, libre: 0 };
+    let comp = 0, diario = 0, res = 0, lib = 0;
+    pockets.forEach(p => {
+      const b = Number(p.saldo_actual || 0);
+      if (p.tipo === 'compromiso_fijo') comp += b;
+      else if (p.tipo === 'gasto_corriente') diario += b;
+      else if (p.tipo === 'reserva' || p.tipo === 'ahorro') res += b;
+      else lib += b;
+    });
+    return {
+      compromisos: Math.round((comp / totalBalance) * 100),
+      diario: Math.round((diario / totalBalance) * 100),
+      reserva: Math.round((res / totalBalance) * 100),
+      libre: Math.round((lib / totalBalance) * 100)
+    };
+  }, [pockets, totalBalance]);
+
+  // Bolsillos ordenados: los pagados bajan al final automáticamente
+  const sortedPockets = useMemo(() => {
+    return [...pockets].sort((a, b) => {
+      if (a.pagado_este_ciclo && !b.pagado_este_ciclo) return 1;
+      if (!a.pagado_este_ciclo && b.pagado_este_ciclo) return -1;
+      return 0;
+    });
+  }, [pockets]);
+
+  // Movimientos filtrados
+  const filteredHistory = useMemo(() => {
+    return history.filter(item => {
+      const matchesType = historyFilter === 'all' || item.tipo === historyFilter;
+      const q = historySearch.toLowerCase().trim();
+      const matchesSearch = !q || 
+        (item.fuente && item.fuente.toLowerCase().includes(q)) ||
+        (item.pocketNombre && item.pocketNombre.toLowerCase().includes(q)) ||
+        (item.nota && item.nota.toLowerCase().includes(q));
+      return matchesType && matchesSearch;
+    });
+  }, [history, historyFilter, historySearch]);
 
   const handleSliderChange = (pocketId, val) => {
     const num = Math.max(0, Math.min(100, parseFloat(val) || 0));
@@ -161,6 +207,29 @@ export default function App() {
     }));
   };
 
+  // Generar un nuevo Tip inteligente para Inicio
+  const handleRefreshHomeTip = async () => {
+    setIsRefreshingTip(true);
+    try {
+      const res = await analyzeFinancesWithAI({ pockets, history, question: 'Dame un solo tip corto y concreto (máximo 2 líneas) para mejorar mis finanzas hoy basado en mis bolsillos y movimientos recientes.' });
+      const tipText = res.tips?.[0] || res.resumen_ejecutivo || 'Mantén cubiertos primero tus compromisos antes de realizar gastos no planificados.';
+      setHomeTip(tipText);
+      localStorage.setItem('platicapp_home_tip', tipText);
+    } catch {
+      // Tip dinámico local según la situación real
+      const unpaidCommitments = pockets.filter(p => p.tipo === 'compromiso_fijo' && !p.pagado_este_ciclo);
+      let localTip = 'Tus bolsillos están equilibrados. Recuerda asignar al menos un 15% a tu colchón de reserva.';
+      if (unpaidCommitments.length > 0) {
+        const first = unpaidCommitments[0];
+        localTip = `Te falta cubrir ${first.nombre}. Prioriza asignarle un porcentaje en tu próximo ingreso para asegurar el pago.`;
+      }
+      setHomeTip(localTip);
+      localStorage.setItem('platicapp_home_tip', localTip);
+    } finally {
+      setIsRefreshingTip(false);
+    }
+  };
+
   // Sugerencia de IA al repartir dinero
   const handleAskAI = async () => {
     if (!incomingAmount || incomingAmount <= 0) return;
@@ -180,7 +249,6 @@ export default function App() {
       setAiReasonings(newReasons);
       setAiGeneralAdvice(result.consejo_general || '');
     } catch {
-      // Fallback inteligente
       const simPcts = {};
       pockets.forEach(p => {
         if (p.pagado_este_ciclo) simPcts[p.id] = 5;
@@ -273,7 +341,7 @@ export default function App() {
     showToast(`${selectedPocketDetail.nombre} pagado`);
   };
 
-  // Reiniciar ciclo de bolsillo manualmente
+  // Reiniciar ciclo manualmente
   const handleResetPocketCycle = async (pocketId) => {
     const updated = pockets.map(p => p.id === pocketId ? { ...p, pagado_este_ciclo: false } : p);
     setPockets(updated);
@@ -465,11 +533,7 @@ export default function App() {
 
   // Exportar respaldo JSON
   const handleExportBackup = () => {
-    const data = {
-      pockets,
-      history,
-      exportedAt: new Date().toISOString()
-    };
+    const data = { pockets, history, exportedAt: new Date().toISOString() };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -497,9 +561,9 @@ export default function App() {
           setHistory(parsed.history);
           localStorage.setItem('platicapp_history_v2', JSON.stringify(parsed.history));
         }
-        showToast('Datos restaurados correctamente');
+        showToast('Datos restaurados');
       } catch {
-        showToast('Archivo de respaldo no válido');
+        showToast('Archivo no válido');
       }
     };
     reader.readAsText(file);
@@ -515,8 +579,8 @@ export default function App() {
         </div>
       )}
 
-      {/* HEADER LIMPIO */}
-      <header className="flex items-center justify-between mb-6">
+      {/* HEADER LIMPIO CON NOMBRE DECORADO */}
+      <header className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-1.5">
             <span className="text-emerald-400">MI</span> Platicapp
@@ -534,19 +598,48 @@ export default function App() {
       </header>
 
       {/* ======================================================== */}
-      {/* 1. INICIO (HOME - ULTRA SIMPLIFICADO) */}
+      {/* 1. INICIO (HOME - ULTRA SIMPLIFICADO CON TIP DE IA Y MÉTRICA) */}
       {/* ======================================================== */}
       {activeTab === 'home' && (
-        <div className="space-y-6 animate-in fade-in duration-200">
+        <div className="space-y-5 animate-in fade-in duration-200">
           
           {/* Card Resumen de Saldo */}
-          <div className="bg-slate-900/50 border border-slate-800/80 rounded-3xl p-6 relative overflow-hidden backdrop-blur-sm">
-            <span className="text-xs uppercase tracking-wider font-medium text-slate-400">Total disponible</span>
-            <div className="text-4xl font-extrabold text-white mt-1 tracking-tight">
-              ${totalBalance.toLocaleString('es-CO')}
+          <div className="bg-slate-900/50 border border-slate-800/80 rounded-3xl p-6 relative overflow-hidden backdrop-blur-sm space-y-4">
+            <div>
+              <span className="text-xs uppercase tracking-wider font-medium text-slate-400">Total disponible</span>
+              <div className="text-4xl font-extrabold text-white mt-1 tracking-tight">
+                ${totalBalance.toLocaleString('es-CO')}
+              </div>
             </div>
 
-            <div className="mt-4 pt-4 border-t border-slate-800/60 flex items-center justify-between text-xs text-slate-400">
+            {/* Barra de Distribución Visual por Categoría */}
+            {totalBalance > 0 && (
+              <div className="space-y-1.5 pt-1">
+                <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden flex">
+                  {distributionByCategory.compromisos > 0 && (
+                    <div style={{ width: `${distributionByCategory.compromisos}%` }} className="bg-rose-500 h-full" title="Compromisos" />
+                  )}
+                  {distributionByCategory.diario > 0 && (
+                    <div style={{ width: `${distributionByCategory.diario}%` }} className="bg-emerald-500 h-full" title="Diario" />
+                  )}
+                  {distributionByCategory.reserva > 0 && (
+                    <div style={{ width: `${distributionByCategory.reserva}%` }} className="bg-blue-500 h-full" title="Reserva" />
+                  )}
+                  {distributionByCategory.libre > 0 && (
+                    <div style={{ width: `${distributionByCategory.libre}%` }} className="bg-purple-500 h-full" title="Libre" />
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
+                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-rose-500" /> Fijos {distributionByCategory.compromisos}%</span>
+                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Diario {distributionByCategory.diario}%</span>
+                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-blue-500" /> Reserva {distributionByCategory.reserva}%</span>
+                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-purple-500" /> Libre {distributionByCategory.libre}%</span>
+                </div>
+              </div>
+            )}
+
+            <div className="pt-3 border-t border-slate-800/60 flex items-center justify-between text-xs text-slate-400">
               <span>{pockets.length} bolsillos</span>
               <button
                 onClick={() => {
@@ -560,6 +653,23 @@ export default function App() {
             </div>
           </div>
 
+          {/* WIDGET DEL TIP DE LA IA EN EL HOME */}
+          <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 flex items-start gap-3 backdrop-blur-sm relative">
+            <Sparkles className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 text-xs">
+              <span className="font-semibold text-slate-200 block mb-0.5">Tip del Copiloto</span>
+              <p className="text-slate-400 leading-relaxed">{homeTip}</p>
+            </div>
+            <button
+              onClick={handleRefreshHomeTip}
+              disabled={isRefreshingTip}
+              className="text-slate-500 hover:text-slate-300 transition p-1"
+              title="Obtener otro tip"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingTip ? 'animate-spin text-emerald-400' : ''}`} />
+            </button>
+          </div>
+
           {/* BOTÓN PRINCIPAL: ENTRAR DINERO */}
           <button
             onClick={() => setIncomeModalOpen(true)}
@@ -569,7 +679,7 @@ export default function App() {
             <span>Entrar dinero</span>
           </button>
 
-          {/* LISTA DE BOLSILLOS (TOCAR ABRE EL DETALLE/ACCIONES) */}
+          {/* LISTA DE BOLSILLOS */}
           <div className="space-y-2.5">
             <div className="flex items-center justify-between text-xs font-semibold text-slate-400 px-1">
               <span>Tus bolsillos</span>
@@ -635,7 +745,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Barra sutil de progreso */}
                   {hasTarget && (
                     <div className="w-full h-1 bg-slate-800/70 rounded-full overflow-hidden">
                       <div 
@@ -648,7 +757,6 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* Deuda Interna */}
                   {pocket.deuda_interna && pocket.deuda_interna.monto > 0 && (
                     <div className="text-[11px] text-amber-400 flex items-center gap-1 font-medium pt-0.5">
                       <AlertCircle className="w-3 h-3" />
@@ -714,7 +822,6 @@ export default function App() {
             </div>
           )}
 
-          {/* Chat con Copiloto */}
           <div className="space-y-3 pt-2">
             <span className="text-xs font-semibold text-slate-400 px-1">Preguntas al copiloto</span>
             
@@ -759,22 +866,78 @@ export default function App() {
       )}
 
       {/* ======================================================== */}
-      {/* 3. MOVIMIENTOS (HISTORIAL) */}
+      {/* 3. MOVIMIENTOS (CON FILTROS RÁPIDOS Y BÚSQUEDA) */}
       {/* ======================================================== */}
       {activeTab === 'history' && (
         <div className="space-y-4 animate-in fade-in duration-150">
           <div>
             <h2 className="text-xl font-bold text-white">Movimientos</h2>
-            <p className="text-xs text-slate-400">Historial completo de ingresos y salidas</p>
+            <p className="text-xs text-slate-400">Historial completo con filtros y búsqueda</p>
           </div>
 
-          {history.length === 0 ? (
+          {/* Barra de Búsqueda */}
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={historySearch}
+              onChange={(e) => setHistorySearch(e.target.value)}
+              placeholder="Buscar por bolsillo, fuente o nota..."
+              className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 pl-9 pr-3 text-xs text-white focus:outline-none focus:border-slate-700"
+            />
+          </div>
+
+          {/* Chips de Filtro Rápido */}
+          <div className="flex gap-1.5 overflow-x-auto pb-1 text-xs">
+            <button
+              onClick={() => setHistoryFilter('all')}
+              className={`py-1 px-3 rounded-full border transition whitespace-nowrap ${
+                historyFilter === 'all' 
+                  ? 'bg-slate-800 border-slate-700 text-white font-semibold' 
+                  : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+              }`}
+            >
+              Todos ({history.length})
+            </button>
+            <button
+              onClick={() => setHistoryFilter('ingreso')}
+              className={`py-1 px-3 rounded-full border transition whitespace-nowrap ${
+                historyFilter === 'ingreso' 
+                  ? 'bg-emerald-950/60 border-emerald-800 text-emerald-300 font-semibold' 
+                  : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+              }`}
+            >
+              Ingresos
+            </button>
+            <button
+              onClick={() => setHistoryFilter('gasto')}
+              className={`py-1 px-3 rounded-full border transition whitespace-nowrap ${
+                historyFilter === 'gasto' 
+                  ? 'bg-rose-950/60 border-rose-800 text-rose-300 font-semibold' 
+                  : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+              }`}
+            >
+              Gastos
+            </button>
+            <button
+              onClick={() => setHistoryFilter('pago_compromiso')}
+              className={`py-1 px-3 rounded-full border transition whitespace-nowrap ${
+                historyFilter === 'pago_compromiso' 
+                  ? 'bg-blue-950/60 border-blue-800 text-blue-300 font-semibold' 
+                  : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+              }`}
+            >
+              Pagos de compromiso
+            </button>
+          </div>
+
+          {filteredHistory.length === 0 ? (
             <div className="text-center py-16 text-slate-500 text-xs">
-              No hay movimientos todavía.
+              No se encontraron movimientos con los filtros aplicados.
             </div>
           ) : (
             <div className="space-y-2.5">
-              {history.map(item => (
+              {filteredHistory.map(item => (
                 <div key={item.id} className="bg-slate-900/60 border border-slate-800/70 rounded-2xl p-4 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-xs text-white">
@@ -846,7 +1009,7 @@ export default function App() {
               />
             </div>
 
-            {/* Moneda y Preferencias */}
+            {/* Moneda */}
             <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-5 space-y-3">
               <h3 className="font-semibold text-sm text-white">Moneda</h3>
               <select
@@ -861,7 +1024,7 @@ export default function App() {
               </select>
             </div>
 
-            {/* Respaldos (Copia de Seguridad en 1 clic) */}
+            {/* Respaldos */}
             <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-5 space-y-3">
               <h3 className="font-semibold text-sm text-white">Copia de Seguridad</h3>
               <p className="text-[11px] text-slate-400">Descarga o restaura todos tus bolsillos y movimientos en cualquier momento.</p>
@@ -895,7 +1058,7 @@ export default function App() {
       )}
 
       {/* ======================================================== */}
-      {/* MENÚ INFERIOR (APPLE HIG - 4 PESTAÑAS ESENCIALES) */}
+      {/* MENÚ INFERIOR (APPLE HIG) */}
       {/* ======================================================== */}
       <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-slate-950/85 backdrop-blur-xl border-t border-slate-800/70 z-40 px-3 py-2 flex items-center justify-around">
         <button
@@ -974,14 +1137,13 @@ export default function App() {
 
             {/* Acciones principales del Bolsillo */}
             <div className="space-y-2 pt-1">
-              {/* Pagar si es compromiso */}
               {selectedPocketDetail.tipo === 'compromiso_fijo' && Number(selectedPocketDetail.saldo_actual) > 0 && !selectedPocketDetail.pagado_este_ciclo && (
                 <button
                   onClick={() => setPayModalOpen(true)}
                   className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 transition"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Pagar compromiso y cerrar ciclo</span>
+                  <span>Pagar compromiso y liquidar ciclo</span>
                 </button>
               )}
 
