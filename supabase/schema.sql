@@ -7,7 +7,7 @@
 -- 1. Extensiones necesarias
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 2. Limpieza previa (por si se ejecuta desde cero)
+-- 2. Limpieza previa total (para poder re-ejecutar sin errores)
 DROP TABLE IF EXISTS public.pocket_members CASCADE;
 DROP TABLE IF EXISTS public.chat_history CASCADE;
 DROP TABLE IF EXISTS public.ai_allocation_logs CASCADE;
@@ -16,6 +16,7 @@ DROP TABLE IF EXISTS public.expenses CASCADE;
 DROP TABLE IF EXISTS public.allocations CASCADE;
 DROP TABLE IF EXISTS public.incomes CASCADE;
 DROP TABLE IF EXISTS public.pockets CASCADE;
+DROP TABLE IF EXISTS public.accounts CASCADE;
 
 -- ==============================================================================
 -- TABLAS PRINCIPALES
