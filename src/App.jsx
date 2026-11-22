@@ -743,29 +743,29 @@ export default function App() {
   };
 
   return (
-    <div className="max-w-md mx-auto min-h-screen pb-32 px-4 sm:px-5 pt-6 flex flex-col font-sans text-slate-100 antialiased selection:bg-emerald-500 selection:text-slate-950 overflow-x-hidden">
+    <div className="w-full max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto min-h-screen pb-32 px-4 sm:px-6 md:px-8 pt-6 sm:pt-8 flex flex-col font-sans text-slate-100 antialiased selection:bg-emerald-500 selection:text-slate-950 overflow-x-hidden">
       
       {/* TOAST FLOTANTE */}
       {toastMessage && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 border border-slate-700/60 shadow-2xl px-4 py-2 rounded-full text-xs font-medium text-slate-200 animate-in fade-in slide-in-from-top-2 duration-200 backdrop-blur-md">
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 border border-slate-700/60 shadow-2xl px-5 py-2.5 rounded-full text-xs sm:text-sm font-medium text-slate-200 animate-apple-pop backdrop-blur-md">
           {toastMessage}
         </div>
       )}
 
-      {/* HEADER LIMPIO */}
-      <header className="flex items-center justify-between mb-5">
+      {/* HEADER LIMPIO Y RESPONSIVE */}
+      <header className="flex items-center justify-between mb-6 sm:mb-8">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-1.5">
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-2">
             <span className="text-emerald-400">MI</span> Platicapp
           </h1>
-          <p className="text-xs text-slate-400">Bolsillos y cuentas en sincronía</p>
+          <p className="text-xs sm:text-sm text-slate-400 mt-0.5">Bolsillos y cuentas en sincronía</p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 sm:gap-3">
           {currentUser ? (
             <button
               onClick={() => setActiveTab('settings')}
-              className="w-8 h-8 rounded-full overflow-hidden border border-emerald-500/50 shadow-sm transition active:scale-95 flex-shrink-0"
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden border border-emerald-500/50 shadow-sm transition active:scale-95 flex-shrink-0"
               title={`Conectado como ${currentUser.user_metadata?.full_name || currentUser.email}`}
             >
               {currentUser.user_metadata?.avatar_url ? (
@@ -775,7 +775,7 @@ export default function App() {
                   className="w-full h-full object-cover" 
                 />
               ) : (
-                <div className="w-full h-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs font-bold">
+                <div className="w-full h-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs sm:text-sm font-bold">
                   {(currentUser.email?.[0] || 'U').toUpperCase()}
                 </div>
               )}
@@ -784,20 +784,20 @@ export default function App() {
             <button
               onClick={handleGoogleLogin}
               disabled={isLoggingIn}
-              className="px-2.5 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700 transition active:scale-95 text-xs flex items-center gap-1.5 font-medium"
+              className="px-3 sm:px-4 py-2 rounded-full bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700 transition active:scale-95 text-xs sm:text-sm flex items-center gap-2 font-medium"
               title="Iniciar sesión con Google"
             >
-              <GoogleIcon className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Entrar</span>
+              <GoogleIcon className="w-4 h-4" />
+              <span>Entrar</span>
             </button>
           )}
 
           <button 
             onClick={handleOpenNewPocketModal}
-            className="p-2.5 rounded-full bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700 transition active:scale-95"
+            className="p-2.5 sm:p-3 rounded-full bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700 transition active:scale-95"
             title="Nuevo bolsillo"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
         </div>
       </header>
@@ -806,32 +806,32 @@ export default function App() {
       {/* 1. INICIO (HOME - OPERATIVO Y LIMPIO) */}
       {/* ======================================================== */}
       {activeTab === 'home' && (
-        <div className="space-y-4 animate-in fade-in duration-200">
+        <div className="space-y-4 sm:space-y-5 animate-apple-in">
           
           {/* Card Resumen de Saldo */}
-          <div className="bg-slate-900/50 border border-slate-800/80 rounded-3xl p-5 sm:p-6 relative overflow-hidden backdrop-blur-sm space-y-3.5">
+          <div className="bg-slate-900/50 border border-slate-800/80 rounded-3xl p-5 sm:p-7 relative overflow-hidden backdrop-blur-sm space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-xs uppercase tracking-wider font-medium text-slate-400">Total disponible</span>
-                <div className="text-3xl sm:text-4xl font-extrabold text-white mt-0.5 tracking-tight">
+                <span className="text-xs sm:text-sm uppercase tracking-wider font-semibold text-slate-400">Total disponible</span>
+                <div className="text-3xl sm:text-4xl md:text-5xl font-black text-white mt-1 tracking-tight">
                   ${totalBalance.toLocaleString('es-CO')}
                 </div>
               </div>
 
               {/* Selector de vista: Categorías vs Cuentas Bancarias */}
-              <div className="flex p-0.5 bg-slate-950/80 border border-slate-800 rounded-xl text-[11px] font-semibold">
+              <div className="flex p-1 bg-slate-950/80 border border-slate-800 rounded-2xl text-xs sm:text-sm font-semibold">
                 <button
                   onClick={() => setBalanceViewMode('categories')}
-                  className={`py-1 px-2.5 rounded-lg transition ${
-                    balanceViewMode === 'categories' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-slate-200'
+                  className={`py-1.5 px-3 rounded-xl transition ${
+                    balanceViewMode === 'categories' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
                   }`}
                 >
                   Tipo
                 </button>
                 <button
                   onClick={() => setBalanceViewMode('accounts')}
-                  className={`py-1 px-2.5 rounded-lg transition ${
-                    balanceViewMode === 'accounts' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-slate-200'
+                  className={`py-1.5 px-3 rounded-xl transition ${
+                    balanceViewMode === 'accounts' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
                   }`}
                 >
                   Cuentas
@@ -857,26 +857,26 @@ export default function App() {
                   )}
                 </div>
 
-                <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5 flex-wrap gap-1">
-                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-rose-500" /> Fijos {distributionByCategory.compromisos}%</span>
-                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Diario {distributionByCategory.diario}%</span>
-                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-blue-500" /> Reserva {distributionByCategory.reserva}%</span>
-                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-purple-500" /> Libre {distributionByCategory.libre}%</span>
+                <div className="flex items-center justify-between text-xs sm:text-sm text-slate-400 pt-1 flex-wrap gap-2">
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-rose-500" /> Fijos {distributionByCategory.compromisos}%</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Diario {distributionByCategory.diario}%</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-500" /> Reserva {distributionByCategory.reserva}%</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-purple-500" /> Libre {distributionByCategory.libre}%</span>
                 </div>
               </div>
             )}
 
             {/* VISTA B: ARQUEO POR CUENTA BANCARIA REAL */}
             {balanceViewMode === 'accounts' && (
-              <div className="space-y-1.5 pt-1 animate-in fade-in">
-                <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="space-y-2 pt-1 animate-apple-in">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs sm:text-sm">
                   {balancesByAccount.map(acc => (
-                    <div key={acc.nombre} className="p-2 rounded-xl bg-slate-950/70 border border-slate-800/80 flex items-center justify-between">
+                    <div key={acc.nombre} className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800/80 flex items-center justify-between">
                       <div className="truncate pr-1">
-                        <span className="text-slate-400 text-[10px] block truncate">{acc.nombre}</span>
-                        <span className="font-bold text-white text-xs">${acc.amount.toLocaleString('es-CO')}</span>
+                        <span className="text-slate-400 text-xs block truncate">{acc.nombre}</span>
+                        <span className="font-bold text-white text-xs sm:text-sm">${acc.amount.toLocaleString('es-CO')}</span>
                       </div>
-                      <span className="text-[10px] font-semibold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded">
+                      <span className="text-xs font-semibold text-slate-400 bg-slate-900 px-2 py-0.5 rounded">
                         {acc.percentage}%
                       </span>
                     </div>
@@ -885,158 +885,160 @@ export default function App() {
               </div>
             )}
 
-            <div className="pt-2.5 border-t border-slate-800/60 flex items-center justify-between text-xs text-slate-400">
+            <div className="pt-3 border-t border-slate-800/60 flex items-center justify-between text-xs sm:text-sm text-slate-400">
               <span>{pockets.length} bolsillos</span>
               <button
                 onClick={() => {
                   setExpenseForm({ pocketId: pockets[0]?.id || '', monto: '', nota: '' });
                   setExpenseModalOpen(true);
                 }}
-                className="text-xs text-slate-300 hover:text-white flex items-center gap-1 transition"
+                className="text-xs sm:text-sm text-slate-300 hover:text-white flex items-center gap-1.5 transition active:scale-95"
               >
-                <Minus className="w-3.5 h-3.5" /> Gasto rápido
+                <Minus className="w-4 h-4" /> Gasto rápido
               </button>
             </div>
           </div>
 
           {/* WIDGET DEL TIP DE LA IA */}
-          <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 flex items-start gap-3 backdrop-blur-sm relative">
-            <Sparkles className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
-            <div className="flex-1 text-xs">
+          <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 sm:p-5 flex items-start gap-3.5 backdrop-blur-sm relative">
+            <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 text-xs sm:text-sm">
               <span className="font-semibold text-slate-200 block mb-0.5">Tip del Copiloto</span>
               <p className="text-slate-400 leading-relaxed">{homeTip}</p>
             </div>
             <button
               onClick={handleRefreshHomeTip}
               disabled={isRefreshingTip}
-              className="text-slate-500 hover:text-slate-300 transition p-1"
+              className="text-slate-500 hover:text-slate-300 transition p-1.5 active:scale-95"
               title="Actualizar tip"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingTip ? 'animate-spin text-emerald-400' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${isRefreshingTip ? 'animate-spin text-emerald-400' : ''}`} />
             </button>
           </div>
 
           {/* BOTÓN PRINCIPAL: ENTRAR DINERO */}
           <button
             onClick={() => setIncomeModalOpen(true)}
-            className="w-full py-4 px-5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-[0.98] text-slate-950 font-bold text-sm shadow-sm flex items-center justify-center gap-2 transition-all duration-150"
+            className="w-full py-4 sm:py-4.5 px-6 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-[0.98] text-slate-950 font-bold text-sm sm:text-base shadow-sm flex items-center justify-center gap-2.5 transition-all duration-200"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-5 h-5" />
             <span>Entrar dinero</span>
           </button>
 
           {/* LISTA DE BOLSILLOS */}
-          <div className="space-y-2.5">
-            <div className="flex items-center justify-between text-xs font-semibold text-slate-400 px-1">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-xs sm:text-sm font-semibold text-slate-400 px-1">
               <span>Tus bolsillos</span>
-              <span>Saldo</span>
+              <span>Saldo actual</span>
             </div>
 
             {sortedPockets.length === 0 ? (
-              <div className="bg-slate-900/40 border border-slate-800/80 rounded-3xl p-8 text-center space-y-3.5 backdrop-blur-sm">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center mx-auto">
-                  <Wallet className="w-6 h-6" />
+              <div className="bg-slate-900/40 border border-slate-800/80 rounded-3xl p-8 sm:p-10 text-center space-y-4 backdrop-blur-sm">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center mx-auto">
+                  <Wallet className="w-7 h-7" />
                 </div>
-                <div className="space-y-1">
-                  <h3 className="font-bold text-white text-sm">Tu espacio está listo para empezar</h3>
-                  <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
+                <div className="space-y-1.5">
+                  <h3 className="font-bold text-white text-base sm:text-lg">Tu espacio está listo para empezar</h3>
+                  <p className="text-xs sm:text-sm text-slate-400 max-w-sm mx-auto leading-relaxed">
                     Crea tus bolsillos reales (ej. Arriendo, Servicios, Gasolina, Mercado) para comenzar a organizar tus ingresos.
                   </p>
                 </div>
                 <button
                   onClick={handleOpenNewPocketModal}
-                  className="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs inline-flex items-center gap-1.5 transition active:scale-95 border border-slate-700/60"
+                  className="py-3 px-5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs sm:text-sm inline-flex items-center gap-2 transition active:scale-95 border border-slate-700/60"
                 >
                   <Plus className="w-4 h-4 text-emerald-400" />
                   <span>Crear mi primer bolsillo</span>
                 </button>
               </div>
             ) : (
-              sortedPockets.map(pocket => {
-                const hasTarget = pocket.meta_monto > 0;
-                const effectiveTarget = pocket.periodicidad === 'quincenal' && hasTarget 
-                  ? pocket.meta_monto / 2 
-                  : pocket.meta_monto;
+              <div className="space-y-3 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
+                {sortedPockets.map(pocket => {
+                  const hasTarget = pocket.meta_monto > 0;
+                  const effectiveTarget = pocket.periodicidad === 'quincenal' && hasTarget 
+                    ? pocket.meta_monto / 2 
+                    : pocket.meta_monto;
 
-                const progress = hasTarget 
-                  ? Math.min(100, Math.round((pocket.saldo_actual / effectiveTarget) * 100)) 
-                  : null;
+                  const progress = hasTarget 
+                    ? Math.min(100, Math.round((pocket.saldo_actual / effectiveTarget) * 100)) 
+                    : null;
 
-                const isPaid = pocket.pagado_este_ciclo;
+                  const isPaid = pocket.pagado_este_ciclo;
 
-                return (
-                  <div 
-                    key={pocket.id}
-                    onClick={() => setSelectedPocketDetail(pocket)}
-                    className={`border rounded-2xl p-4 transition-all duration-150 cursor-pointer active:scale-[0.99] space-y-2.5 ${
-                      isPaid 
-                        ? 'bg-slate-950/30 border-slate-900/80 opacity-55 hover:opacity-90' 
-                        : 'bg-slate-900/60 border-slate-800/70 hover:border-slate-700/80'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div 
-                          className="w-3 h-3 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: pocket.color }}
-                        />
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="font-semibold text-sm text-white">{pocket.nombre}</h3>
-                            
-                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700/60">
-                              {pocket.cuenta_destino || 'Bancolombia'}
-                            </span>
-
-                            {isPaid && (
-                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                Pagado
+                  return (
+                    <div 
+                      key={pocket.id}
+                      onClick={() => setSelectedPocketDetail(pocket)}
+                      className={`border rounded-2xl p-4 sm:p-5 transition-all duration-200 cursor-pointer active:scale-[0.98] hover:border-slate-700/80 hover:shadow-md space-y-3 ${
+                        isPaid 
+                          ? 'bg-slate-950/30 border-slate-900/80 opacity-55 hover:opacity-90' 
+                          : 'bg-slate-900/60 border-slate-800/70'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div 
+                            className="w-3.5 h-3.5 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: pocket.color }}
+                          />
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="font-bold text-sm sm:text-base text-white">{pocket.nombre}</h3>
+                              
+                              <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700/60">
+                                {pocket.cuenta_destino || 'Bancolombia'}
                               </span>
-                            )}
-                          </div>
 
-                          <div className="text-xs text-slate-400 mt-0.5">
-                            <span className="capitalize">{pocket.periodicidad || 'Mensual'}</span>
-                            {pocket.dia_vencimiento && (
-                              <span> · Vence día {pocket.dia_vencimiento}</span>
-                            )}
+                              {isPaid && (
+                                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                  Pagado
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="text-xs sm:text-sm text-slate-400 mt-1">
+                              <span className="capitalize">{pocket.periodicidad || 'Mensual'}</span>
+                              {pocket.dia_vencimiento && (
+                                <span> · Vence día {pocket.dia_vencimiento}</span>
+                              )}
+                            </div>
                           </div>
+                        </div>
+
+                        <div className="text-right">
+                          <div className="font-bold text-sm sm:text-base text-white">
+                            ${Number(pocket.saldo_actual || 0).toLocaleString('es-CO')}
+                          </div>
+                          {hasTarget && (
+                            <div className="text-xs sm:text-sm text-slate-400 mt-0.5">
+                              Meta: ${Number(effectiveTarget).toLocaleString('es-CO')}
+                            </div>
+                          )}
                         </div>
                       </div>
 
-                      <div className="text-right">
-                        <div className="font-semibold text-sm text-white">
-                          ${Number(pocket.saldo_actual || 0).toLocaleString('es-CO')}
+                      {hasTarget && (
+                        <div className="w-full h-1.5 bg-slate-800/70 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full rounded-full transition-all duration-500 ease-out"
+                            style={{ 
+                              width: `${progress}%`,
+                              backgroundColor: isPaid ? '#10B981' : pocket.color 
+                            }}
+                          />
                         </div>
-                        {hasTarget && (
-                          <div className="text-[11px] text-slate-400">
-                            Meta: ${Number(effectiveTarget).toLocaleString('es-CO')}
-                          </div>
-                        )}
-                      </div>
+                      )}
+
+                      {pocket.deuda_interna && pocket.deuda_interna.monto > 0 && (
+                        <div className="text-xs text-amber-400 flex items-center gap-1.5 font-medium pt-0.5">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                          <span>Debe ${pocket.deuda_interna.monto.toLocaleString('es-CO')} a {pocket.deuda_interna.lender_nombre || 'Libre'}</span>
+                        </div>
+                      )}
                     </div>
-
-                    {hasTarget && (
-                      <div className="w-full h-1 bg-slate-800/70 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full rounded-full transition-all duration-300"
-                          style={{ 
-                            width: `${progress}%`,
-                            backgroundColor: isPaid ? '#10B981' : pocket.color 
-                          }}
-                        />
-                      </div>
-                    )}
-
-                    {pocket.deuda_interna && pocket.deuda_interna.monto > 0 && (
-                      <div className="text-[11px] text-amber-400 flex items-center gap-1 font-medium pt-0.5">
-                        <AlertCircle className="w-3 h-3" />
-                        <span>Debe ${pocket.deuda_interna.monto.toLocaleString('es-CO')} a {pocket.deuda_interna.lender_nombre || 'Libre'}</span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>
@@ -1046,17 +1048,17 @@ export default function App() {
       {/* 2. GESTIÓN: CONFIGURACIÓN DE BOLSILLOS Y CUENTAS */}
       {/* ======================================================== */}
       {activeTab === 'manage' && (
-        <div className="space-y-4 animate-in fade-in duration-150">
+        <div className="space-y-5 animate-apple-in">
           <div>
-            <h2 className="text-xl font-bold text-white">Bolsillos & Cuentas</h2>
-            <p className="text-xs text-slate-400">Configura tus bolsillos, compromisos y cuentas bancarias destino</p>
+            <h2 className="text-xl sm:text-2xl font-bold text-white">Bolsillos & Cuentas</h2>
+            <p className="text-xs sm:text-sm text-slate-400 mt-0.5">Configura tus bolsillos, compromisos y cuentas bancarias destino</p>
           </div>
 
           {/* Selector de Sub-Pestaña: Bolsillos vs Cuentas */}
-          <div className="flex p-1 bg-slate-900 border border-slate-800 rounded-2xl text-xs font-semibold">
+          <div className="flex p-1 bg-slate-900 border border-slate-800 rounded-2xl text-xs sm:text-sm font-semibold">
             <button
               onClick={() => setManageSubTab('pockets')}
-              className={`flex-1 py-2 rounded-xl transition ${
+              className={`flex-1 py-2 sm:py-2.5 rounded-xl transition ${
                 manageSubTab === 'pockets' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
@@ -1064,7 +1066,7 @@ export default function App() {
             </button>
             <button
               onClick={() => setManageSubTab('accounts')}
-              className={`flex-1 py-2 rounded-xl transition ${
+              className={`flex-1 py-2 sm:py-2.5 rounded-xl transition ${
                 manageSubTab === 'accounts' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
@@ -1074,98 +1076,106 @@ export default function App() {
 
           {/* SUB-PESTAÑA A: GESTIÓN DE BOLSILLOS */}
           {manageSubTab === 'pockets' && (
-            <div className="space-y-3 animate-in fade-in">
+            <div className="space-y-3.5 animate-apple-in">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-400">Organiza metas y vencimientos</span>
+                <span className="text-xs sm:text-sm text-slate-400">Organiza metas y periodicidades</span>
                 <button
                   onClick={handleOpenNewPocketModal}
-                  className="py-1.5 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition"
+                  className="py-2 px-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm flex items-center gap-1.5 transition active:scale-95"
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  <Plus className="w-4 h-4" />
                   <span>Nuevo Bolsillo</span>
                 </button>
               </div>
 
-              <div className="space-y-2">
-                {pockets.map(p => (
-                  <div key={p.id} className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-3.5 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
-                      <div>
-                        <h4 className="font-semibold text-xs text-white">{p.nombre}</h4>
-                        <div className="text-[11px] text-slate-400 space-x-1.5 mt-0.5">
-                          <span className="capitalize">{p.periodicidad || 'Mensual'}</span>
-                          <span>· {p.cuenta_destino || 'Bancolombia'}</span>
-                          {p.meta_monto > 0 && <span>· Meta: ${Number(p.meta_monto).toLocaleString('es-CO')}</span>}
+              {pockets.length === 0 ? (
+                <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 text-center text-xs sm:text-sm text-slate-400">
+                  No hay bolsillos creados todavía. Toca "Nuevo Bolsillo" para empezar.
+                </div>
+              ) : (
+                <div className="space-y-2.5 md:grid md:grid-cols-2 md:gap-3.5 md:space-y-0">
+                  {pockets.map(p => (
+                    <div key={p.id} className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 flex items-center justify-between hover:border-slate-700/80 transition-all">
+                      <div className="flex items-center gap-3 truncate pr-2">
+                        <div className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
+                        <div className="truncate">
+                          <h4 className="font-bold text-xs sm:text-sm text-white truncate">{p.nombre}</h4>
+                          <div className="text-xs text-slate-400 space-x-1.5 mt-0.5 truncate">
+                            <span className="capitalize">{p.periodicidad || 'Mensual'}</span>
+                            <span>· {p.cuenta_destino || 'Bancolombia'}</span>
+                            {p.meta_monto > 0 && <span>· Meta: ${Number(p.meta_monto).toLocaleString('es-CO')}</span>}
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => {
-                          setEditingPocket(p);
-                          setPocketModalOpen(true);
-                        }}
-                        className="p-2 text-slate-400 hover:text-white rounded-lg transition"
-                        title="Editar"
-                      >
-                        <Edit3 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeletePocket(p.id)}
-                        className="p-2 text-slate-400 hover:text-rose-400 rounded-lg transition"
-                        title="Eliminar"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <button
+                          onClick={() => {
+                            setEditingPocket(p);
+                            setPocketModalOpen(true);
+                          }}
+                          className="p-2 text-slate-400 hover:text-white rounded-lg transition active:scale-90"
+                          title="Editar"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeletePocket(p.id)}
+                          className="p-2 text-slate-400 hover:text-rose-400 rounded-lg transition active:scale-90"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
           {/* SUB-PESTAÑA B: GESTIÓN DE CUENTAS BANCARIAS */}
           {manageSubTab === 'accounts' && (
-            <div className="space-y-3 animate-in fade-in">
+            <div className="space-y-3.5 animate-apple-in">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-400">Cuentas donde vive tu dinero físico</span>
+                <span className="text-xs sm:text-sm text-slate-400">Cuentas donde vive tu dinero físico</span>
                 <button
                   onClick={() => {
                     setEditingAccount({ id: null, nombre: '', tipo: 'banco', color: '#3B82F6' });
                     setAccountModalOpen(true);
                   }}
-                  className="py-1.5 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition"
+                  className="py-2 px-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm flex items-center gap-1.5 transition active:scale-95"
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  <Plus className="w-4 h-4" />
                   <span>Nueva Cuenta</span>
                 </button>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-3 md:grid md:grid-cols-2 md:gap-3.5 md:space-y-0">
                 {balancesByAccount.map(acc => (
-                  <div key={acc.nombre} className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 space-y-2">
+                  <div key={acc.nombre} className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 sm:p-5 space-y-3 hover:border-slate-700/80 transition-all">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <Building2 className="w-4 h-4 text-emerald-400" />
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-slate-950 flex items-center justify-center border border-slate-800 text-emerald-400">
+                          <Building2 className="w-4 h-4" />
+                        </div>
                         <div>
-                          <h4 className="font-semibold text-sm text-white">{acc.nombre}</h4>
-                          <span className="text-[11px] text-slate-400 capitalize">{acc.tipo || 'Cuenta'}</span>
+                          <h4 className="font-bold text-sm sm:text-base text-white">{acc.nombre}</h4>
+                          <span className="text-xs text-slate-400 capitalize">{acc.tipo || 'Cuenta'}</span>
                         </div>
                       </div>
 
                       <div className="text-right">
-                        <span className="font-bold text-sm text-white">${acc.amount.toLocaleString('es-CO')}</span>
-                        <span className="text-[10px] text-slate-400 block font-medium">({acc.percentage}% del total)</span>
+                        <span className="font-bold text-sm sm:text-base text-white">${acc.amount.toLocaleString('es-CO')}</span>
+                        <span className="text-xs text-slate-400 block font-medium">({acc.percentage}% del total)</span>
                       </div>
                     </div>
 
                     {/* Bolsillos asociados a esta cuenta */}
-                    <div className="pt-2 border-t border-slate-800/60 flex items-center justify-between text-[11px] text-slate-400">
+                    <div className="pt-2.5 border-t border-slate-800/60 flex items-center justify-between text-xs text-slate-400">
                       <div className="truncate pr-2">
                         <span>Bolsillos: </span>
-                        <span className="text-slate-300">
+                        <span className="text-slate-300 font-medium">
                           {acc.pocketsList?.length > 0 
                             ? acc.pocketsList.map(p => p.nombre).join(', ') 
                             : 'Ninguno asignado'}
@@ -1178,17 +1188,17 @@ export default function App() {
                             setEditingAccount(acc);
                             setAccountModalOpen(true);
                           }}
-                          className="p-1.5 text-slate-400 hover:text-white rounded"
+                          className="p-1.5 text-slate-400 hover:text-white rounded active:scale-90"
                           title="Editar"
                         >
-                          <Edit3 className="w-3.5 h-3.5" />
+                          <Edit3 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDeleteAccount(acc.id)}
-                          className="p-1.5 text-slate-400 hover:text-rose-400 rounded"
+                          className="p-1.5 text-slate-400 hover:text-rose-400 rounded active:scale-90"
                           title="Eliminar"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
@@ -1576,57 +1586,57 @@ export default function App() {
       )}
 
       {/* ======================================================== */}
-      {/* MENÚ INFERIOR (APPLE HIG - 5 PESTAÑAS) */}
+      {/* MENÚ INFERIOR (APPLE HIG - 5 PESTAÑAS RESPONSIVE) */}
       {/* ======================================================== */}
-      <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-slate-950/85 backdrop-blur-xl border-t border-slate-800/70 z-40 px-2 py-2 flex items-center justify-around">
+      <nav className="fixed bottom-0 left-0 right-0 max-w-lg md:max-w-xl mx-auto bg-slate-950/90 backdrop-blur-2xl border-t border-slate-800/70 z-40 px-3 sm:px-6 py-2 sm:py-2.5 flex items-center justify-around md:bottom-5 md:rounded-full md:border md:border-slate-800/80 md:shadow-2xl">
         <button
           onClick={() => setActiveTab('home')}
-          className={`flex flex-col items-center gap-1 py-1 px-2.5 transition-colors ${
+          className={`flex flex-col items-center gap-1 py-1 px-2 transition-all active:scale-95 ${
             activeTab === 'home' ? 'text-emerald-400 font-semibold' : 'text-slate-400 hover:text-slate-200'
           }`}
         >
-          <Home className="w-5 h-5" />
-          <span className="text-[10px]">Inicio</span>
+          <Home className="w-5 h-5 sm:w-5 sm:h-5" />
+          <span className="text-[11px] sm:text-xs font-medium">Inicio</span>
         </button>
 
         <button
           onClick={() => setActiveTab('manage')}
-          className={`flex flex-col items-center gap-1 py-1 px-1.5 transition-colors ${
+          className={`flex flex-col items-center gap-1 py-1 px-2 transition-all active:scale-95 ${
             activeTab === 'manage' ? 'text-emerald-400 font-semibold' : 'text-slate-400 hover:text-slate-200'
           }`}
         >
-          <Wallet className="w-5 h-5" />
-          <span className="text-[10px] whitespace-nowrap">Bolsillos & Cuentas</span>
+          <Wallet className="w-5 h-5 sm:w-5 sm:h-5" />
+          <span className="text-[11px] sm:text-xs font-medium whitespace-nowrap">Bolsillos & Cuentas</span>
         </button>
 
         <button
           onClick={() => setActiveTab('copilot')}
-          className={`flex flex-col items-center gap-1 py-1 px-2.5 transition-colors ${
+          className={`flex flex-col items-center gap-1 py-1 px-2 transition-all active:scale-95 ${
             activeTab === 'copilot' ? 'text-emerald-400 font-semibold' : 'text-slate-400 hover:text-slate-200'
           }`}
         >
-          <Sparkles className="w-5 h-5" />
-          <span className="text-[10px]">Copiloto</span>
+          <Sparkles className="w-5 h-5 sm:w-5 sm:h-5" />
+          <span className="text-[11px] sm:text-xs font-medium">Copiloto</span>
         </button>
 
         <button
           onClick={() => setActiveTab('history')}
-          className={`flex flex-col items-center gap-1 py-1 px-2.5 transition-colors ${
+          className={`flex flex-col items-center gap-1 py-1 px-2 transition-all active:scale-95 ${
             activeTab === 'history' ? 'text-emerald-400 font-semibold' : 'text-slate-400 hover:text-slate-200'
           }`}
         >
-          <History className="w-5 h-5" />
-          <span className="text-[10px]">Movimientos</span>
+          <History className="w-5 h-5 sm:w-5 sm:h-5" />
+          <span className="text-[11px] sm:text-xs font-medium">Movimientos</span>
         </button>
 
         <button
           onClick={() => setActiveTab('settings')}
-          className={`flex flex-col items-center gap-1 py-1 px-2.5 transition-colors ${
+          className={`flex flex-col items-center gap-1 py-1 px-2 transition-all active:scale-95 ${
             activeTab === 'settings' ? 'text-emerald-400 font-semibold' : 'text-slate-400 hover:text-slate-200'
           }`}
         >
-          <SettingsIcon className="w-5 h-5" />
-          <span className="text-[10px]">Ajustes</span>
+          <SettingsIcon className="w-5 h-5 sm:w-5 sm:h-5" />
+          <span className="text-[11px] sm:text-xs font-medium">Ajustes</span>
         </button>
       </nav>
 
@@ -1634,43 +1644,43 @@ export default function App() {
       {/* SHEET: ACCIONES Y DETALLE DEL BOLSILLO */}
       {/* ======================================================== */}
       {selectedPocketDetail && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-end justify-center p-0">
-          <div className="bg-slate-900 border-t border-slate-800 rounded-t-3xl max-w-md w-full p-5 sm:p-6 space-y-4 shadow-2xl animate-in slide-in-from-bottom duration-200 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-3xl max-w-lg w-full p-6 sm:p-7 space-y-4 sm:space-y-5 shadow-2xl animate-apple-pop max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: selectedPocketDetail.color }} />
+              <div className="flex items-center gap-3">
+                <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: selectedPocketDetail.color }} />
                 <div>
-                  <h3 className="font-bold text-white text-base">{selectedPocketDetail.nombre}</h3>
-                  <span className="text-[10px] text-slate-400">Cuenta: {selectedPocketDetail.cuenta_destino || 'Bancolombia'}</span>
+                  <h3 className="font-bold text-white text-base sm:text-lg">{selectedPocketDetail.nombre}</h3>
+                  <span className="text-xs text-slate-400">Cuenta destino: {selectedPocketDetail.cuenta_destino || 'Bancolombia'}</span>
                 </div>
               </div>
-              <button onClick={() => setSelectedPocketDetail(null)} className="text-slate-400 hover:text-white p-1">
+              <button onClick={() => setSelectedPocketDetail(null)} className="text-slate-400 hover:text-white p-1.5 active:scale-90">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl flex items-center justify-between">
+            <div className="bg-slate-950 border border-slate-800 p-4 sm:p-5 rounded-2xl flex items-center justify-between">
               <div>
-                <span className="text-[11px] text-slate-400 block">Saldo actual</span>
-                <span className="text-2xl font-black text-white">
+                <span className="text-xs text-slate-400 block font-medium">Saldo actual</span>
+                <span className="text-2xl sm:text-3xl font-black text-white">
                   ${Number(selectedPocketDetail.saldo_actual || 0).toLocaleString('es-CO')}
                 </span>
               </div>
               {selectedPocketDetail.meta_monto > 0 && (
                 <div className="text-right">
-                  <span className="text-[11px] text-slate-400 block">Meta mensual</span>
-                  <span className="text-sm font-semibold text-slate-300">
+                  <span className="text-xs text-slate-400 block font-medium">Meta mensual</span>
+                  <span className="text-sm sm:text-base font-semibold text-slate-300">
                     ${Number(selectedPocketDetail.meta_monto).toLocaleString('es-CO')}
                   </span>
                 </div>
               )}
             </div>
 
-            <div className="space-y-2 pt-1">
+            <div className="space-y-2.5 pt-1">
               {selectedPocketDetail.tipo === 'compromiso_fijo' && Number(selectedPocketDetail.saldo_actual) > 0 && !selectedPocketDetail.pagado_este_ciclo && (
                 <button
                   onClick={() => setPayModalOpen(true)}
-                  className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 transition"
+                  className="w-full py-3.5 sm:py-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition active:scale-[0.98]"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>Pagar compromiso desde {selectedPocketDetail.cuenta_destino || 'cuenta'}</span>
@@ -1680,7 +1690,7 @@ export default function App() {
               {selectedPocketDetail.pagado_este_ciclo && (
                 <button
                   onClick={() => handleResetPocketCycle(selectedPocketDetail.id)}
-                  className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs flex items-center justify-center gap-2 transition"
+                  className="w-full py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition active:scale-[0.98]"
                 >
                   <RotateCcw className="w-4 h-4" />
                   <span>Reiniciar ciclo para el próximo mes</span>
@@ -1692,29 +1702,29 @@ export default function App() {
                   setExpenseForm({ pocketId: selectedPocketDetail.id, monto: '', nota: '' });
                   setExpenseModalOpen(true);
                 }}
-                className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs flex items-center justify-center gap-2 transition"
+                className="w-full py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition active:scale-[0.98]"
               >
                 <Minus className="w-4 h-4" />
                 <span>Registrar gasto de este bolsillo</span>
               </button>
 
-              <div className="flex gap-2 pt-1">
+              <div className="flex gap-2.5 pt-1">
                 <button
                   onClick={() => {
                     setEditingPocket(selectedPocketDetail);
                     setPocketModalOpen(true);
                   }}
-                  className="flex-1 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 hover:text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition"
+                  className="flex-1 py-3 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 hover:text-white text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition active:scale-95"
                 >
-                  <Edit3 className="w-3.5 h-3.5" />
+                  <Edit3 className="w-4 h-4" />
                   <span>Editar</span>
                 </button>
 
                 <button
                   onClick={() => handleDeletePocket(selectedPocketDetail.id)}
-                  className="py-2.5 px-4 rounded-xl bg-rose-950/30 border border-rose-900/40 text-rose-400 hover:bg-rose-900/40 text-xs font-semibold flex items-center justify-center transition"
+                  className="py-3 px-5 rounded-xl bg-rose-950/30 border border-rose-900/40 text-rose-400 hover:bg-rose-900/40 text-xs sm:text-sm font-semibold flex items-center justify-center transition active:scale-95"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
+                  <Trash2 className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -1726,11 +1736,11 @@ export default function App() {
       {/* MODAL: ENTRAR DINERO */}
       {/* ======================================================== */}
       {incomeModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-5 sm:p-6 space-y-4 shadow-2xl my-6 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md sm:max-w-lg w-full p-6 sm:p-7 space-y-4 sm:space-y-5 shadow-2xl my-6 max-h-[92vh] overflow-y-auto animate-apple-pop">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="font-bold text-white text-base">Entrar dinero</h3>
-              <button onClick={() => setIncomeModalOpen(false)} className="text-slate-400 hover:text-white p-1">
+              <h3 className="font-bold text-white text-base sm:text-lg">Entrar dinero</h3>
+              <button onClick={() => setIncomeModalOpen(false)} className="text-slate-400 hover:text-white p-1.5 active:scale-90">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1851,23 +1861,23 @@ export default function App() {
       {/* HOJA DE TRASLADOS */}
       {/* ======================================================== */}
       {transfersSheetOpen && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-5 sm:p-6 space-y-4 shadow-2xl my-6 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md sm:max-w-lg w-full p-6 sm:p-7 space-y-4 sm:space-y-5 shadow-2xl my-6 max-h-[92vh] overflow-y-auto animate-apple-pop">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <ArrowRightLeft className="w-5 h-5 text-emerald-400" />
-                <h3 className="font-bold text-white text-base">Guía de Traslados</h3>
+                <h3 className="font-bold text-white text-base sm:text-lg">Guía de Traslados</h3>
               </div>
-              <button onClick={() => setTransfersSheetOpen(false)} className="text-slate-400 hover:text-white p-1">
+              <button onClick={() => setTransfersSheetOpen(false)} className="text-slate-400 hover:text-white p-1.5 active:scale-90">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <p className="text-xs text-slate-300 leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
               El dinero ingresó a <span className="font-bold text-white">{incomeOriginAccount}</span>. Haz estas transferencias en tus apps bancarias para dejar todo al día:
             </p>
 
-            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+            <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
               {pendingTransfers.map(tr => {
                 const isChecked = Boolean(completedTransferIds[tr.id]);
                 const isSameAccount = tr.cuentaDestino.toLowerCase() === incomeOriginAccount.toLowerCase();
@@ -1876,29 +1886,29 @@ export default function App() {
                   <div 
                     key={tr.id}
                     onClick={() => setCompletedTransferIds(prev => ({ ...prev, [tr.id]: !prev[tr.id] }))}
-                    className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                    className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between active:scale-[0.99] ${
                       isChecked 
                         ? 'bg-slate-950/30 border-slate-900 opacity-50 line-through' 
                         : 'bg-slate-950/70 border-slate-800 hover:border-slate-700'
                     }`}
                   >
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex items-center gap-3">
                       {isChecked ? (
-                        <CheckSquare className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                        <CheckSquare className="w-5 h-5 text-emerald-400 flex-shrink-0" />
                       ) : (
-                        <Square className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                        <Square className="w-5 h-5 text-slate-400 flex-shrink-0" />
                       )}
                       <div>
-                        <div className="text-xs font-semibold text-white">
+                        <div className="text-xs sm:text-sm font-semibold text-white">
                           {isSameAccount ? `Dejar en ${tr.cuentaDestino}` : `Pasar a ${tr.cuentaDestino}`}
                         </div>
-                        <div className="text-[10px] text-slate-400">
+                        <div className="text-xs text-slate-400">
                           Para {tr.pocketNombre}
                         </div>
                       </div>
                     </div>
 
-                    <div className="font-bold text-xs text-emerald-400">
+                    <div className="font-bold text-xs sm:text-sm text-emerald-400">
                       ${tr.monto.toLocaleString('es-CO')}
                     </div>
                   </div>
@@ -1911,7 +1921,7 @@ export default function App() {
                 setTransfersSheetOpen(false);
                 showToast('Transferencias completadas');
               }}
-              className="w-full py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition"
+              className="w-full py-3.5 sm:py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm transition active:scale-[0.98]"
             >
               Listo, cuentas al día
             </button>
@@ -1923,45 +1933,45 @@ export default function App() {
       {/* MODAL: PAGAR COMPROMISO */}
       {/* ======================================================== */}
       {payModalOpen && selectedPocketDetail && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl animate-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 sm:p-7 space-y-4 shadow-2xl animate-apple-pop">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="font-bold text-white text-base">Pagar compromiso</h3>
-              <button onClick={() => setPayModalOpen(false)} className="text-slate-400 hover:text-white p-1">
+              <h3 className="font-bold text-white text-base sm:text-lg">Pagar compromiso</h3>
+              <button onClick={() => setPayModalOpen(false)} className="text-slate-400 hover:text-white p-1.5 active:scale-90">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs text-slate-300">
+            <div className="space-y-3.5 text-xs sm:text-sm text-slate-300">
               <p>Vas a liquidar el compromiso <span className="font-bold text-white">{selectedPocketDetail.nombre}</span>.</p>
 
-              <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl text-center space-y-1">
-                <span className="text-[11px] text-slate-400 block">Monto que sale</span>
-                <span className="text-2xl font-black text-white">
+              <div className="bg-slate-950 border border-slate-800 p-4 sm:p-5 rounded-2xl text-center space-y-1">
+                <span className="text-xs text-slate-400 block font-medium">Monto que sale</span>
+                <span className="text-2xl sm:text-3xl font-black text-white">
                   ${Number(selectedPocketDetail.saldo_actual || 0).toLocaleString('es-CO')}
                 </span>
-                <span className="text-[11px] text-emerald-400 block font-medium">
+                <span className="text-xs sm:text-sm text-emerald-400 block font-semibold mt-1">
                   Desde {selectedPocketDetail.cuenta_destino || 'Bancolombia'}
                 </span>
               </div>
 
-              <p className="text-[11px] text-slate-400">
+              <p className="text-xs text-slate-400 leading-relaxed">
                 El bolsillo se vaciará a $0, se marcará como pagado y bajará de prioridad para este ciclo.
               </p>
             </div>
 
-            <div className="flex gap-2 pt-2">
+            <div className="flex gap-2.5 pt-2">
               <button
                 type="button"
                 onClick={() => setPayModalOpen(false)}
-                className="flex-1 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs transition"
+                className="flex-1 py-3 sm:py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs sm:text-sm transition active:scale-95"
               >
                 Cancelar
               </button>
               <button
                 type="button"
                 onClick={handleConfirmPayCommitment}
-                className="flex-1 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition"
+                className="flex-1 py-3 sm:py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm transition active:scale-95"
               >
                 Confirmar pago
               </button>
@@ -1974,22 +1984,22 @@ export default function App() {
       {/* MODAL: REGISTRAR GASTO */}
       {/* ======================================================== */}
       {expenseModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 sm:p-7 space-y-4 shadow-2xl animate-apple-pop">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="font-bold text-white text-base">Registrar gasto</h3>
-              <button onClick={() => setExpenseModalOpen(false)} className="text-slate-400 hover:text-white p-1">
+              <h3 className="font-bold text-white text-base sm:text-lg">Registrar gasto</h3>
+              <button onClick={() => setExpenseModalOpen(false)} className="text-slate-400 hover:text-white p-1.5 active:scale-90">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleRegisterExpense} className="space-y-3.5">
+            <form onSubmit={handleRegisterExpense} className="space-y-4">
               <div>
-                <label className="text-xs text-slate-400">Bolsillo</label>
+                <label className="text-xs sm:text-sm font-medium text-slate-300">Bolsillo</label>
                 <select
                   value={expenseForm.pocketId}
                   onChange={(e) => setExpenseForm(prev => ({ ...prev, pocketId: e.target.value }))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none mt-1"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs sm:text-sm text-white focus:outline-none mt-1"
                   required
                 >
                   <option value="">Selecciona un bolsillo...</option>
@@ -2002,31 +2012,31 @@ export default function App() {
               </div>
 
               <div>
-                <label className="text-xs text-slate-400">Monto del gasto ($)</label>
+                <label className="text-xs sm:text-sm font-medium text-slate-300">Monto del gasto ($)</label>
                 <input
                   type="number"
                   value={expenseForm.monto}
                   onChange={(e) => setExpenseForm(prev => ({ ...prev, monto: e.target.value }))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs text-white font-bold text-base focus:outline-none mt-1"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-3.5 text-base sm:text-lg font-bold text-white focus:outline-none mt-1"
                   placeholder="0"
                   required
                 />
               </div>
 
               <div>
-                <label className="text-xs text-slate-400">Nota</label>
+                <label className="text-xs sm:text-sm font-medium text-slate-300">Nota u observación</label>
                 <input
                   type="text"
                   value={expenseForm.nota}
                   onChange={(e) => setExpenseForm(prev => ({ ...prev, nota: e.target.value }))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none mt-1"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs sm:text-sm text-white focus:outline-none mt-1"
                   placeholder="ej. Gasolina en Terpel, Almuerzo..."
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full py-3 rounded-xl bg-slate-100 hover:bg-white text-slate-950 font-bold text-xs transition mt-2"
+                className="w-full py-3.5 rounded-xl bg-slate-100 hover:bg-white text-slate-950 font-bold text-xs sm:text-sm transition mt-2 active:scale-[0.98]"
               >
                 Guardar gasto
               </button>
@@ -2039,25 +2049,25 @@ export default function App() {
       {/* MODAL: CREAR / EDITAR BOLSILLO */}
       {/* ======================================================== */}
       {pocketModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-5 sm:p-6 space-y-4 shadow-2xl my-8 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md sm:max-w-lg w-full p-6 sm:p-7 space-y-4 sm:space-y-5 shadow-2xl my-6 max-h-[92vh] overflow-y-auto animate-apple-pop">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="font-bold text-white text-base">
+              <h3 className="font-bold text-white text-base sm:text-lg">
                 {editingPocket.id ? 'Editar bolsillo' : 'Nuevo bolsillo'}
               </h3>
-              <button onClick={() => setPocketModalOpen(false)} className="text-slate-400 hover:text-white p-1">
+              <button onClick={() => setPocketModalOpen(false)} className="text-slate-400 hover:text-white p-1.5 active:scale-90">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSavePocket} className="space-y-3.5">
+            <form onSubmit={handleSavePocket} className="space-y-4">
               <div>
-                <label className="text-xs text-slate-400">Nombre del bolsillo</label>
+                <label className="text-xs sm:text-sm font-medium text-slate-300">Nombre del bolsillo</label>
                 <input
                   type="text"
                   value={editingPocket.nombre}
                   onChange={(e) => setEditingPocket(prev => ({ ...prev, nombre: e.target.value }))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none mt-1"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs sm:text-sm text-white focus:outline-none mt-1"
                   placeholder="ej. Gasolina, Arriendo, YouTube..."
                   required
                 />
@@ -2065,11 +2075,11 @@ export default function App() {
 
               {/* Cuenta Bancaria Asignada */}
               <div>
-                <label className="text-xs text-slate-400">¿En qué cuenta bancaria vive esta plata?</label>
+                <label className="text-xs sm:text-sm font-medium text-slate-300">¿En qué cuenta bancaria vive esta plata?</label>
                 <select
                   value={editingPocket.cuenta_destino}
                   onChange={(e) => setEditingPocket(prev => ({ ...prev, cuenta_destino: e.target.value }))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white mt-1"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs sm:text-sm text-white mt-1"
                 >
                   {accounts.map(acc => (
                     <option key={acc.id} value={acc.nombre}>{acc.nombre}</option>
@@ -2077,13 +2087,13 @@ export default function App() {
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-slate-400">Tipo</label>
+                  <label className="text-xs sm:text-sm font-medium text-slate-300">Tipo</label>
                   <select
                     value={editingPocket.tipo}
                     onChange={(e) => setEditingPocket(prev => ({ ...prev, tipo: e.target.value }))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-2 text-xs text-white mt-1"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs sm:text-sm text-white mt-1"
                   >
                     <option value="compromiso_fijo">Compromiso</option>
                     <option value="gasto_corriente">Gasto Diario</option>
@@ -2094,11 +2104,11 @@ export default function App() {
                 </div>
 
                 <div>
-                  <label className="text-xs text-slate-400">Periodicidad</label>
+                  <label className="text-xs sm:text-sm font-medium text-slate-300">Periodicidad</label>
                   <select
                     value={editingPocket.periodicidad}
                     onChange={(e) => setEditingPocket(prev => ({ ...prev, periodicidad: e.target.value }))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-2 text-xs text-white mt-1"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs sm:text-sm text-white mt-1"
                   >
                     <option value="mensual">Mensual</option>
                     <option value="quincenal">Quincenal</option>
@@ -2108,30 +2118,30 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-slate-400">Día vencimiento</label>
+                  <label className="text-xs sm:text-sm font-medium text-slate-300">Día vencimiento</label>
                   <input
                     type="number"
                     min="1"
                     max="31"
                     value={editingPocket.dia_vencimiento}
                     onChange={(e) => setEditingPocket(prev => ({ ...prev, dia_vencimiento: e.target.value }))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-2 text-xs text-white mt-1"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs sm:text-sm text-white mt-1"
                     placeholder="ej. 15"
                   />
                 </div>
 
                 {editingPocket.periodicidad === 'quincenal' && (
                   <div>
-                    <label className="text-xs text-slate-400">2do vencimiento</label>
+                    <label className="text-xs sm:text-sm font-medium text-slate-300">2do vencimiento</label>
                     <input
                       type="number"
                       min="1"
                       max="31"
                       value={editingPocket.dia_vencimiento_2}
                       onChange={(e) => setEditingPocket(prev => ({ ...prev, dia_vencimiento_2: e.target.value }))}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-2 text-xs text-white mt-1"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs sm:text-sm text-white mt-1"
                       placeholder="ej. 30"
                     />
                   </div>
@@ -2139,36 +2149,36 @@ export default function App() {
               </div>
 
               <div>
-                <label className="text-xs text-slate-400">Meta mensual ($)</label>
+                <label className="text-xs sm:text-sm font-medium text-slate-300">Meta periódica ($)</label>
                 <input
                   type="number"
                   value={editingPocket.meta_monto}
                   onChange={(e) => setEditingPocket(prev => ({ ...prev, meta_monto: e.target.value }))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white mt-1"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs sm:text-sm text-white mt-1"
                   placeholder="ej. 1200000"
                 />
               </div>
 
               <div>
-                <label className="text-xs text-slate-400">Saldo actual ($)</label>
+                <label className="text-xs sm:text-sm font-medium text-slate-300">Saldo actual ($)</label>
                 <input
                   type="number"
                   value={editingPocket.saldo_actual}
                   onChange={(e) => setEditingPocket(prev => ({ ...prev, saldo_actual: e.target.value }))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white mt-1"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs sm:text-sm text-white mt-1"
                   placeholder="0"
                 />
               </div>
 
               <div>
-                <label className="text-xs text-slate-400 block mb-1.5">Color</label>
-                <div className="flex gap-2">
+                <label className="text-xs sm:text-sm font-medium text-slate-300 block mb-1.5">Color</label>
+                <div className="flex gap-2.5 flex-wrap">
                   {COLOR_PALETTE.map(c => (
                     <button
                       key={c}
                       type="button"
                       onClick={() => setEditingPocket(prev => ({ ...prev, color: c }))}
-                      className={`w-6 h-6 rounded-full transition ${editingPocket.color === c ? 'scale-125 ring-2 ring-white' : 'opacity-60 hover:opacity-100'}`}
+                      className={`w-7 h-7 rounded-full transition ${editingPocket.color === c ? 'scale-125 ring-2 ring-white' : 'opacity-60 hover:opacity-100'}`}
                       style={{ backgroundColor: c }}
                     />
                   ))}
@@ -2177,7 +2187,7 @@ export default function App() {
 
               <button
                 type="submit"
-                className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition mt-2"
+                className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm transition mt-2 active:scale-[0.98]"
               >
                 {editingPocket.id ? 'Guardar cambios' : 'Crear bolsillo'}
               </button>
@@ -2190,36 +2200,36 @@ export default function App() {
       {/* MODAL: CREAR / EDITAR CUENTA BANCARIA */}
       {/* ======================================================== */}
       {accountModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-5 sm:p-6 space-y-4 shadow-2xl">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 sm:p-7 space-y-4 shadow-2xl animate-apple-pop">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="font-bold text-white text-base">
+              <h3 className="font-bold text-white text-base sm:text-lg">
                 {editingAccount.id ? 'Editar Cuenta' : 'Nueva Cuenta Bancaria'}
               </h3>
-              <button onClick={() => setAccountModalOpen(false)} className="text-slate-400 hover:text-white p-1">
+              <button onClick={() => setAccountModalOpen(false)} className="text-slate-400 hover:text-white p-1.5 active:scale-90">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveAccount} className="space-y-3.5">
+            <form onSubmit={handleSaveAccount} className="space-y-4">
               <div>
-                <label className="text-xs text-slate-400">Nombre de la cuenta o app</label>
+                <label className="text-xs sm:text-sm font-medium text-slate-300">Nombre de la cuenta o app</label>
                 <input
                   type="text"
                   value={editingAccount.nombre}
                   onChange={(e) => setEditingAccount(prev => ({ ...prev, nombre: e.target.value }))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none mt-1"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs sm:text-sm text-white focus:outline-none mt-1"
                   placeholder="ej. Nequi, Bancolombia, Nu, Lulo..."
                   required
                 />
               </div>
 
               <div>
-                <label className="text-xs text-slate-400">Tipo de cuenta</label>
+                <label className="text-xs sm:text-sm font-medium text-slate-300">Tipo de cuenta</label>
                 <select
                   value={editingAccount.tipo}
                   onChange={(e) => setEditingAccount(prev => ({ ...prev, tipo: e.target.value }))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white mt-1"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs sm:text-sm text-white mt-1"
                 >
                   <option value="banco">Cuenta de Ahorros / Corriente</option>
                   <option value="billetera">Billetera Digital (Nequi, Daviplata)</option>
@@ -2230,7 +2240,7 @@ export default function App() {
 
               <button
                 type="submit"
-                className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition mt-2"
+                className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm transition mt-2 active:scale-[0.98]"
               >
                 {editingAccount.id ? 'Guardar Cambios' : 'Crear Cuenta'}
               </button>
