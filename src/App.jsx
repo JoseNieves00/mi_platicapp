@@ -616,7 +616,7 @@ export default function App() {
     }
   };
 
-  // Pagar compromiso y vaciar bolsillo con registro de mes
+  // Pagar compromiso y vaciar bolsillo con registro de mes y egreso contable
   const handleConfirmPayCommitment = async () => {
     if (!selectedPocketDetail) return;
     const paymentAmount = Number(selectedPocketDetail.saldo_actual || 0);
@@ -642,20 +642,40 @@ export default function App() {
       id: `pay-${Date.now()}`,
       tipo: 'pago_compromiso',
       pocketNombre: selectedPocketDetail.nombre,
-      cuenta: selectedPocketDetail.cuenta_destino,
+      cuenta: selectedPocketDetail.cuenta_destino || 'Bancolombia',
       monto: paymentAmount,
       perfil: activeProfile,
-      nota: `Compromiso liquidado desde ${selectedPocketDetail.cuenta_destino || 'cuenta'}`,
+      nota: `Compromiso liquidado: ${selectedPocketDetail.nombre} (${selectedPocketDetail.cuenta_destino || 'Bancolombia'})`,
       fecha: new Date().toISOString()
     };
     const updatedHistory = [newHistoryEntry, ...history];
     setHistory(updatedHistory);
     localStorage.setItem('platicapp_history_real_v1', JSON.stringify(updatedHistory));
 
+    // Si Supabase está configurado, registrar en tabla expenses
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && paymentAmount > 0) {
+          await supabase.from('expenses').insert({
+            pocket_id: selectedPocketDetail.id,
+            user_id: user.id,
+            monto: paymentAmount,
+            categoria: 'compromiso_fijo',
+            nota: `Compromiso liquidado: ${selectedPocketDetail.nombre}`,
+            cuenta_usada: selectedPocketDetail.cuenta_destino || 'Bancolombia',
+            perfil: activeProfile
+          });
+        }
+      } catch (err) {
+        console.warn('Error al guardar egreso en Supabase:', err);
+      }
+    }
+
     setPayModalOpen(false);
     setSelectedPocketDetail(null);
-    confetti({ particleCount: 30, spread: 50 });
-    showToast(`${selectedPocketDetail.nombre} pagado`);
+    confetti({ particleCount: 35, spread: 60 });
+    showToast(`✓ ${selectedPocketDetail.nombre} liquidado ($${paymentAmount.toLocaleString('es-CO')})`);
   };
 
   // Reiniciar ciclo manualmente
@@ -1269,9 +1289,20 @@ export default function App() {
 
                             <div className="text-xs sm:text-sm text-slate-400 mt-1 flex items-center gap-1.5 flex-wrap">
                               <span className="capitalize">{pocket.periodicidad || 'Mensual'}</span>
+                              
+                              {/* Semáforo visual de urgencia */}
                               {m.daysLeft !== null && (
-                                <span className={m.daysLeft <= 3 ? 'text-amber-400 font-semibold' : 'text-slate-400'}>
-                                  · {m.daysLeft === 0 ? 'Vence hoy' : `Vence en ${m.daysLeft} días (día ${pocket.dia_vencimiento})`}
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 ${
+                                  m.daysLeft === 0 
+                                    ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse' 
+                                    : (m.daysLeft <= 3 
+                                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' 
+                                      : 'bg-slate-800 text-slate-300')
+                                }`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${
+                                    m.daysLeft === 0 ? 'bg-rose-400' : (m.daysLeft <= 3 ? 'bg-amber-400' : 'bg-slate-400')
+                                  }`} />
+                                  <span>{m.daysLeft === 0 ? 'Vence hoy' : `Vence en ${m.daysLeft} días (día ${pocket.dia_vencimiento})`}</span>
                                 </span>
                               )}
                             </div>
@@ -2167,27 +2198,46 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Botón Central Inteligente y Asignación Rápida a Libre */}
-              <div className="flex items-center gap-1.5 pt-0.5">
+              {/* Botones de Reparto Inteligente Rápido */}
+              <div className="flex items-center gap-2 pt-0.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!incomingAmount || incomingAmount <= 0) {
+                      showToast('Digita primero un monto');
+                      return;
+                    }
+                    const res = calculateWeeklyTargetAllocation(incomingAmount, visiblePockets);
+                    setPercentages(res.percentages);
+                    showToast('⚡ Reparto óptimo aplicado (100%)');
+                  }}
+                  disabled={!incomingAmount || incomingAmount <= 0}
+                  className="flex-1 min-w-[140px] py-2 px-3 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-[0.98] disabled:opacity-40 min-h-[40px]"
+                  title="Aplica porcentajes fijos + cuotas semanales urgentes + resto a Libre"
+                >
+                  <Sparkles className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  <span>Reparto Óptimo 1-Clic</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={handleAskAI}
                   disabled={isAiLoading || !incomingAmount || incomingAmount <= 0}
-                  className="flex-1 py-1.5 px-2.5 rounded-xl bg-gradient-to-r from-purple-900/40 to-slate-800 border border-purple-500/30 hover:border-purple-500/60 text-purple-200 text-[11px] sm:text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-[0.98] disabled:opacity-40"
-                  title="Calcula automáticamente según urgencias de corte, metas y porcentajes base"
+                  className="py-2 px-3 rounded-xl bg-purple-950/40 hover:bg-purple-900/50 border border-purple-500/30 text-purple-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-[0.98] disabled:opacity-40 min-h-[40px]"
+                  title="Análisis detallado con inteligencia artificial"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
-                  <span className="truncate">{isAiLoading ? 'Analizando...' : 'Repartir con Copiloto IA'}</span>
+                  <span>{isAiLoading ? 'Analizando...' : 'Copiloto IA'}</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={balanceToFreePocket}
-                  className="py-1.5 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] sm:text-xs font-semibold flex items-center gap-1 transition active:scale-[0.98] flex-shrink-0"
+                  className="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1 transition active:scale-[0.98] flex-shrink-0 min-h-[40px]"
                   title="Asigna todo el porcentaje restante al bolsillo Libre"
                 >
                   <Sliders className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
-                  <span>Restante a Libre</span>
+                  <span>Resto a Libre</span>
                 </button>
               </div>
 
