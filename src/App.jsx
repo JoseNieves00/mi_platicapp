@@ -813,18 +813,44 @@ export default function App() {
     showToast('Bolsillo eliminado');
   };
 
-  // Guardar Cuenta Bancaria
+  // Guardar Cuenta Bancaria (y propagar renombre en bolsillos asociados)
   const handleSaveAccount = async (e) => {
     e.preventDefault();
-    if (!editingAccount.nombre.trim()) return;
+    const newName = editingAccount.nombre?.trim();
+    if (!newName) return;
 
-    const updated = await saveAccount({
+    // Buscar si era una cuenta existente con un nombre anterior
+    const oldAccount = editingAccount.id ? accounts.find(a => a.id === editingAccount.id) : null;
+    const oldName = oldAccount?.nombre;
+
+    const accountToSave = {
       ...editingAccount,
+      nombre: newName,
       perfil: editingAccount.perfil || activeProfile
-    });
+    };
+
+    const updated = await saveAccount(accountToSave);
     setAccounts(updated);
+
+    // Si cambió el nombre de la cuenta, actualizar todos los bolsillos asociados para que no pierdan la referencia
+    if (oldName && oldName.toLowerCase() !== newName.toLowerCase()) {
+      const updatedPockets = pockets.map(p => {
+        if ((p.cuenta_destino || '').toLowerCase() === oldName.toLowerCase()) {
+          return { ...p, cuenta_destino: newName };
+        }
+        return p;
+      });
+      setPockets(updatedPockets);
+      await savePocketsBatch(updatedPockets);
+
+      // Si la cuenta receptora de entrar dinero era la anterior, actualizarla
+      if (incomeOriginAccount.toLowerCase() === oldName.toLowerCase()) {
+        setIncomeOriginAccount(newName);
+      }
+    }
+
     setAccountModalOpen(false);
-    showToast('Cuenta bancaria guardada');
+    showToast(`Cuenta "${newName}" guardada`);
   };
 
   const handleDeleteAccount = async (id) => {

@@ -70,16 +70,22 @@ export async function saveAccount(account) {
   const sanitizedAccount = {
     ...account,
     id: validId,
+    nombre: account.nombre.trim(),
     perfil: account.perfil || 'personal'
   };
 
-  const exists = current.some(a => a.id === account.id || a.nombre.toLowerCase() === account.nombre.toLowerCase());
+  // Buscar por ID exacto primero; si no tiene ID, buscar por nombre
+  const existingIndex = current.findIndex(a => 
+    (account.id && a.id === account.id) || 
+    (!account.id && a.nombre.toLowerCase() === sanitizedAccount.nombre.toLowerCase())
+  );
+
   let updated;
-  if (exists) {
-    updated = current.map(a => (a.id === account.id || a.nombre.toLowerCase() === account.nombre.toLowerCase()) 
-      ? { ...a, ...sanitizedAccount, id: a.id || validId } 
-      : a
-    );
+  if (existingIndex >= 0) {
+    const existing = current[existingIndex];
+    const finalId = (existing.id && existing.id.length === 36 && existing.id.includes('-')) ? existing.id : validId;
+    updated = current.map((a, idx) => idx === existingIndex ? { ...a, ...sanitizedAccount, id: finalId } : a);
+    sanitizedAccount.id = finalId;
   } else {
     updated = [...current, sanitizedAccount];
   }
@@ -91,11 +97,11 @@ export async function saveAccount(account) {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         await supabase.from('accounts').upsert({
-          id: validId,
-          nombre: account.nombre,
-          tipo: account.tipo || 'banco',
-          color: account.color || '#3B82F6',
-          perfil: account.perfil || 'personal',
+          id: sanitizedAccount.id,
+          nombre: sanitizedAccount.nombre,
+          tipo: sanitizedAccount.tipo || 'banco',
+          color: sanitizedAccount.color || '#3B82F6',
+          perfil: sanitizedAccount.perfil || 'personal',
           user_id: user.id
         });
       }
