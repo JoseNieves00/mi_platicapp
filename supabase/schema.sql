@@ -29,6 +29,7 @@ CREATE TABLE public.accounts (
     nombre TEXT NOT NULL,
     tipo TEXT DEFAULT 'banco', -- banco, billetera, tarjeta, efectivo
     color TEXT DEFAULT '#3B82F6',
+    perfil TEXT DEFAULT 'personal', -- 'personal' o 'business'
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -49,6 +50,12 @@ CREATE TABLE public.pockets (
     cuenta_destino TEXT DEFAULT 'Bancolombia', -- Nequi, Bancolombia, Daviplata, Tarjeta Virtual, Efectivo, etc.
     deuda_interna JSONB DEFAULT NULL, -- { pocket_id, lender_nombre, monto }
     
+    -- Híbrido Porcentaje / Valor Automático
+    porcentaje_objetivo NUMERIC(5,2) DEFAULT NULL, -- ej. 10.0 para llenar automáticamente 10%
+
+    -- Multi-Perfil (Personal vs Empresa)
+    perfil TEXT DEFAULT 'personal', -- 'personal' o 'business'
+
     -- Soporte para Finanzas en Pareja / Compartidas
     es_compartido BOOLEAN DEFAULT false,
     codigo_invitacion TEXT UNIQUE DEFAULT NULL,
@@ -180,3 +187,13 @@ CREATE POLICY "Users can manage transfers" ON public.transfers
 
 CREATE POLICY "Users can manage chat history" ON public.chat_history
     FOR ALL USING (auth.uid() = user_id);
+
+-- ==============================================================================
+-- MIGRACIÓN INCREMENTAL SEGURA (Para bases de datos ya en producción)
+-- ==============================================================================
+ALTER TABLE public.pockets ADD COLUMN IF NOT EXISTS perfil TEXT DEFAULT 'personal';
+ALTER TABLE public.pockets ADD COLUMN IF NOT EXISTS porcentaje_objetivo NUMERIC(5,2) DEFAULT NULL;
+ALTER TABLE public.accounts ADD COLUMN IF NOT EXISTS perfil TEXT DEFAULT 'personal';
+ALTER TABLE public.incomes ADD COLUMN IF NOT EXISTS perfil TEXT DEFAULT 'personal';
+ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS perfil TEXT DEFAULT 'personal';
+ALTER TABLE public.transfers ADD COLUMN IF NOT EXISTS perfil TEXT DEFAULT 'personal';

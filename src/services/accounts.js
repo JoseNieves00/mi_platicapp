@@ -67,15 +67,20 @@ export async function saveAccount(account) {
     ? account.id 
     : generateUUID();
 
-  let updated;
+  const sanitizedAccount = {
+    ...account,
+    id: validId,
+    perfil: account.perfil || 'personal'
+  };
+
   const exists = current.some(a => a.id === account.id || a.nombre.toLowerCase() === account.nombre.toLowerCase());
   if (exists) {
     updated = current.map(a => (a.id === account.id || a.nombre.toLowerCase() === account.nombre.toLowerCase()) 
-      ? { ...a, ...account, id: a.id || validId } 
+      ? { ...a, ...sanitizedAccount, id: a.id || validId } 
       : a
     );
   } else {
-    updated = [...current, { ...account, id: validId }];
+    updated = [...current, sanitizedAccount];
   }
 
   localStorage.setItem(LOCAL_ACCOUNTS_KEY, JSON.stringify(updated));
@@ -89,6 +94,7 @@ export async function saveAccount(account) {
           nombre: account.nombre,
           tipo: account.tipo || 'banco',
           color: account.color || '#3B82F6',
+          perfil: account.perfil || 'personal',
           user_id: user.id
         });
       }

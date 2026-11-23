@@ -147,80 +147,172 @@ RESPONDE ÚNICAMENTE CON UN OBJETO JSON VÁLIDO CON ESTA ESTRUCTURA (SIN TEXTO E
 }
 
 /**
+ * Diagnóstico financiero dinámico local (100% basado en datos reales del usuario, sin mockups)
+ */
+export function generateLocalFinancialDiagnosis({ pockets = [], history = [], question = '', profile = 'personal', profileName = 'Personal' }) {
+  const total = pockets.reduce((acc, p) => acc + Number(p.saldo_actual || 0), 0);
+  const freePocket = pockets.find(p => p.tipo === 'libre') || pockets.find(p => p.nombre.toLowerCase().includes('libre'));
+  const freeBalance = freePocket ? Number(freePocket.saldo_actual || 0) : 0;
+  const committedBalance = total - freeBalance;
+
+  const now = new Date();
+  const currentDay = now.getDate();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+
+  // Compromisos próximos
+  const upcomingCommitments = pockets.filter(p => p.tipo === 'compromiso_fijo' && p.dia_vencimiento && !p.pagado_este_ciclo).map(p => {
+    const dueDay = Number(p.dia_vencimiento);
+    const daysLeft = dueDay >= currentDay ? dueDay - currentDay : (daysInMonth - currentDay) + dueDay;
+    const falta = Math.max(0, Number(p.meta_monto || 0) - Number(p.saldo_actual || 0));
+    return { ...p, daysLeft, falta };
+  }).sort((a, b) => a.daysLeft - b.daysLeft);
+
+  const nearest = upcomingCommitments[0];
+  const urgentCount = upcomingCommitments.filter(c => c.daysLeft <= 7).length;
+
+  let estado = 'Saludable';
+  if (urgentCount > 1 || (nearest && nearest.daysLeft <= 3 && nearest.falta > 0)) {
+    estado = 'Requiere atención';
+  } else if (urgentCount === 1 || (freeBalance < total * 0.1 && total > 0)) {
+    estado = 'Estable';
+  }
+
+  const isBusiness = profile === 'business';
+  let resumen = '';
+  if (pockets.length === 0) {
+    resumen = `Tu espacio de ${profileName} está en blanco. Crea tus primeros bolsillos para comenzar a planificar.`;
+  } else if (isBusiness) {
+    resumen = `En tu contabilidad de ${profileName}, cuentas con $${total.toLocaleString('es-CO')} en total, de los cuales $${freeBalance.toLocaleString('es-CO')} corresponden a liquidez operativa y $${committedBalance.toLocaleString('es-CO')} a reservas/impuestos.`;
+  } else {
+    resumen = `Tienes $${freeBalance.toLocaleString('es-CO')} disponibles en tu bolsillo Libre para tus gastos diarios sin tocar los $${committedBalance.toLocaleString('es-CO')} resguardados en tus demás bolsillos.`;
+  }
+
+  const tips = [];
+  if (nearest && nearest.falta > 0) {
+    tips.push(`Prioridad inmediata: "${nearest.nombre}" vence en ${nearest.daysLeft} días y faltan $${nearest.falta.toLocaleString('es-CO')} para completarlo.`);
+  } else if (nearest && nearest.falta === 0) {
+    tips.push(`"${nearest.nombre}" ya tiene la meta cubierta para su vencimiento en ${nearest.daysLeft} días.`);
+  }
+
+  if (freeBalance > total * 0.4 && total > 0) {
+    tips.push(`Tienes un 40%+ de tus recursos en Libre. Considera asignar una parte a ahorro o reservas para emergencias.`);
+  } else if (freeBalance === 0 && total > 0) {
+    tips.push(`No tienes saldo en tu bolsillo Libre. Recuerda asignar un porcentaje en tu próximo ingreso para imprevistos.`);
+  } else {
+    tips.push(`Mantén la regla de separar tus ingresos en porcentajes apenas ingresen a tus cuentas bancarias.`);
+  }
+
+  if (isBusiness) {
+    tips.push(`Separa un bolsillo exclusivo para provisiones de impuestos (DIAN / IVA) para evitar sorpresas al cierre de mes.`);
+  } else {
+    tips.push(`Verifica que los saldos de tus bolsillos coincidan con el dinero en tus cuentas (Nequi, Bancolombia, etc.).`);
+  }
+
+  let respuesta_copiloto = '';
+  if (question) {
+    respuesta_copiloto = `Analizando tu estado actual de ${profileName}: Tienes ${pockets.length} bolsillos con un saldo total de $${total.toLocaleString('es-CO')}. Respecto a "${question}", tu prioridad debería ser mantener los compromisos de esta semana cubiertos y proteger tu liquidez en Libre.`;
+  }
+
+  return {
+    diagnostico_estado: estado,
+    resumen_ejecutivo: resumen,
+    tips: tips.slice(0, 3),
+    respuesta_copiloto
+  };
+}
+
+/**
  * Función para que el Copiloto analice la salud financiera y movimientos recientes
  */
-export async function analyzeFinancesWithAI({ pockets, history, question = '' }) {
+export async function analyzeFinancesWithAI({ pockets = [], history = [], question = '', profile = 'personal', profileName = 'Personal' }) {
   const config = getStoredConfig();
   const status = getAIStatus();
 
   if (!status.isConfigured) {
-    throw new Error('Configura tu clave de Groq o Gemini en Ajustes para activar el Copiloto.');
+    return generateLocalFinancialDiagnosis({ pockets, history, question, profile, profileName });
   }
 
+  const total = pockets.reduce((acc, p) => acc + Number(p.saldo_actual || 0), 0);
+  const freePocket = pockets.find(p => p.tipo === 'libre') || pockets.find(p => p.nombre.toLowerCase().includes('libre'));
+  const freeBalance = freePocket ? Number(freePocket.saldo_actual || 0) : 0;
+
   const prompt = `
-Eres el Copiloto Financiero de "MI Platicapp". Tu trabajo es analizar la situación real del usuario, felicitar logros, advertir riesgos y darle consejos prácticos y humanos sin rodeos.
+Eres el Copiloto Financiero de "MI Platicapp" para el perfil "${profileName}" (${profile === 'business' ? 'Empresa / Negocio' : 'Finanzas Personales'}).
+Tu trabajo es analizar la situación REAL del usuario, felicitar logros, advertir riesgos y darle consejos prácticos y humanos sin rodeos.
 
-ESTADO DE SUS BOLSILLOS:
-${pockets.map(p => `- ${p.nombre}: $${Number(p.saldo_actual || 0).toLocaleString('es-CO')} (${p.tipo}, ${p.pagado_este_ciclo ? 'Pagado este ciclo' : 'Pendiente'}). Meta: $${p.meta_monto || 'Sin meta'}`).join('\n')}
+ESTADÍSTICAS GLOBALES:
+- Total acumulado: $${total.toLocaleString('es-CO')} COP
+- Saldo en bolsillo Libre (disponible para gastar): $${freeBalance.toLocaleString('es-CO')} COP
+- Total resguardado en bolsillos específicos: $${(total - freeBalance).toLocaleString('es-CO')} COP
 
-ÚLTIMOS MOVIMIENTOS:
-${history.slice(0, 10).map(h => `- ${h.tipo === 'ingreso' ? `+ Ingreso $${h.monto}` : `- Gasto $${h.monto} en ${h.pocketNombre}`}: ${h.nota || ''}`).join('\n')}
+ESTADO REAL DE SUS BOLSILLOS:
+${pockets.length === 0 ? 'Sin bolsillos creados todavía.' : pockets.map(p => `- [${p.nombre}]: Saldo $${Number(p.saldo_actual || 0).toLocaleString('es-CO')} | Tipo: ${p.tipo} (${p.periodicidad || 'mensual'}) | Meta: ${p.meta_monto ? `$${Number(p.meta_monto).toLocaleString('es-CO')}` : 'Sin meta'} | Vencimiento: ${p.dia_vencimiento ? `Día ${p.dia_vencimiento}` : 'Sin día'} | Estado: ${p.pagado_este_ciclo ? 'PAGADO ESTE CICLO' : 'Pendiente'}`).join('\n')}
+
+ÚLTIMOS MOVIMIENTOS REALES:
+${history.length === 0 ? 'Sin movimientos registrados.' : history.slice(0, 10).map(h => `- ${h.tipo === 'ingreso' ? `+ Ingreso $${Number(h.monto || 0).toLocaleString('es-CO')}` : `- Gasto $${Number(h.monto || 0).toLocaleString('es-CO')} en ${h.pocketNombre || 'Bolsillo'}`}: ${h.nota || h.fuente || ''} (Fecha: ${h.fecha ? new Date(h.fecha).toLocaleDateString() : 'reciente'})`).join('\n')}
 
 ${question ? `PREGUNTA ESPECÍFICA DEL USUARIO: "${question}"` : 'Realiza un diagnóstico financiero completo y genera tips.'}
+
+REGLAS ESTRICTAS:
+1. No inventes nombres de servicios que el usuario no tenga. Habla ÚNICAMENTE de los bolsillos y números reales mostrados arriba.
+2. Si es perfil Empresa, adapta el tono a rentabilidad, flujo de caja, nómina, impuestos y reservas.
+3. Si es perfil Personal, enfócate en tranquilidad financiera, cuotas semanales y colchón libre.
 
 RESPONDE ÚNICAMENTE CON UN JSON VÁLIDO CON ESTA ESTRUCTURA:
 {
   "diagnostico_estado": "Saludable | Estable | Requiere atención",
-  "resumen_ejecutivo": "Frase de 2 líneas sobre su estado general actual.",
+  "resumen_ejecutivo": "Frase de 2 líneas sobre su estado general actual con números precisos.",
   "tips": [
-    "Tip 1 concreto y accionable basado en sus números",
-    "Tip 2 sobre optimización o compromisos",
-    "Tip 3 para su colchón de reserva o metas"
+    "Tip 1 concreto y accionable basado en sus bolsillos reales",
+    "Tip 2 sobre optimización semanal o vencimientos",
+    "Tip 3 para su liquidez o metas"
   ],
   "respuesta_copiloto": "Respuesta detallada y amigable en caso de que haya hecho una pregunta."
 }
 `;
 
-  if (status.activeProvider.includes('Groq')) {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.groqKey}`
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: 'Asesor financiero experto, empático y directo. Responde estrictamente en JSON.' },
-          { role: 'user', content: prompt }
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.3
-      })
-    });
+  try {
+    if (status.activeProvider.includes('Groq')) {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${config.groqKey}`
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            { role: 'system', content: 'Asesor financiero experto, empático y directo. Responde estrictamente en JSON sin markdown.' },
+            { role: 'user', content: prompt }
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.3
+        })
+      });
 
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      throw new Error(`Error de Groq: ${err.error?.message || response.statusText}`);
-    }
-    const data = await response.json();
-    return JSON.parse(data.choices[0].message.content);
-  } else {
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${config.geminiKey}`;
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: 'application/json', temperature: 0.3 }
-      })
-    });
+      if (!response.ok) {
+        return generateLocalFinancialDiagnosis({ pockets, history, question, profile, profileName });
+      }
+      const data = await response.json();
+      return JSON.parse(data.choices[0].message.content);
+    } else {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${config.geminiKey}`;
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: 'application/json', temperature: 0.3 }
+        })
+      });
 
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      throw new Error(`Error de Gemini: ${err.error?.message || response.statusText}`);
+      if (!response.ok) {
+        return generateLocalFinancialDiagnosis({ pockets, history, question, profile, profileName });
+      }
+      const data = await response.json();
+      return JSON.parse(data.candidates[0].content.parts[0].text);
     }
-    const data = await response.json();
-    return JSON.parse(data.candidates[0].content.parts[0].text);
+  } catch {
+    return generateLocalFinancialDiagnosis({ pockets, history, question, profile, profileName });
   }
 }

@@ -102,10 +102,14 @@ export async function fetchPockets() {
 }
 
 export async function savePocketsBatch(pocketsList) {
-  // Asegurar que cada bolsillo tenga un id con formato UUID
+  // Asegurar que cada bolsillo tenga un id con formato UUID y atributos de perfil/porcentaje
   const sanitized = pocketsList.map(p => ({
     ...p,
-    id: (p.id && p.id.length === 36 && p.id.includes('-')) ? p.id : generateUUID()
+    id: (p.id && p.id.length === 36 && p.id.includes('-')) ? p.id : generateUUID(),
+    perfil: p.perfil || 'personal',
+    porcentaje_objetivo: (p.porcentaje_objetivo !== undefined && p.porcentaje_objetivo !== '' && p.porcentaje_objetivo !== null) 
+      ? Number(p.porcentaje_objetivo) 
+      : null
   }));
 
   localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(sanitized));
