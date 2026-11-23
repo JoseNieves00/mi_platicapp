@@ -1961,9 +1961,14 @@ export default function App() {
       {/* SHEET: ACCIONES Y DETALLE DEL BOLSILLO */}
       {/* ======================================================== */}
       {selectedPocketDetail && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-3xl max-w-lg w-full p-6 sm:p-7 space-y-4 sm:space-y-5 shadow-2xl animate-apple-pop max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div 
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedPocketDetail(null);
+          }}
+        >
+          <div className="bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-3xl max-w-lg w-full p-5 sm:p-7 space-y-4 sm:space-y-5 shadow-2xl animate-apple-pop max-h-[92vh] flex flex-col overscroll-contain pb-safe">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3 flex-shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: selectedPocketDetail.color }} />
                 <div>
@@ -1971,79 +1976,81 @@ export default function App() {
                   <span className="text-xs text-slate-400">Cuenta destino: {selectedPocketDetail.cuenta_destino || 'Bancolombia'}</span>
                 </div>
               </div>
-              <button onClick={() => setSelectedPocketDetail(null)} className="text-slate-400 hover:text-white p-1.5 active:scale-90">
+              <button onClick={() => setSelectedPocketDetail(null)} className="text-slate-400 hover:text-white p-2 active:scale-90 rounded-full hover:bg-slate-800">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="bg-slate-950 border border-slate-800 p-4 sm:p-5 rounded-2xl flex items-center justify-between">
-              <div>
-                <span className="text-xs text-slate-400 block font-medium">Saldo actual</span>
-                <span className="text-2xl sm:text-3xl font-black text-white">
-                  ${Number(selectedPocketDetail.saldo_actual || 0).toLocaleString('es-CO')}
-                </span>
-              </div>
-              {selectedPocketDetail.meta_monto > 0 && (
-                <div className="text-right">
-                  <span className="text-xs text-slate-400 block font-medium">Meta mensual</span>
-                  <span className="text-sm sm:text-base font-semibold text-slate-300">
-                    ${Number(selectedPocketDetail.meta_monto).toLocaleString('es-CO')}
+            <div className="flex-1 overflow-y-auto overscroll-contain space-y-4 pr-0.5">
+              <div className="bg-slate-950 border border-slate-800 p-4 sm:p-5 rounded-2xl flex items-center justify-between">
+                <div>
+                  <span className="text-xs text-slate-400 block font-medium">Saldo actual</span>
+                  <span className="text-2xl sm:text-3xl font-black text-white">
+                    ${Number(selectedPocketDetail.saldo_actual || 0).toLocaleString('es-CO')}
                   </span>
                 </div>
-              )}
-            </div>
+                {selectedPocketDetail.meta_monto > 0 && (
+                  <div className="text-right">
+                    <span className="text-xs text-slate-400 block font-medium">Meta mensual</span>
+                    <span className="text-sm sm:text-base font-semibold text-slate-300">
+                      ${Number(selectedPocketDetail.meta_monto).toLocaleString('es-CO')}
+                    </span>
+                  </div>
+                )}
+              </div>
 
-            <div className="space-y-2.5 pt-1">
-              {selectedPocketDetail.tipo === 'compromiso_fijo' && Number(selectedPocketDetail.saldo_actual) > 0 && !selectedPocketDetail.pagado_este_ciclo && (
-                <button
-                  onClick={() => setPayModalOpen(true)}
-                  className="w-full py-3.5 sm:py-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition active:scale-[0.98]"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Pagar compromiso desde {selectedPocketDetail.cuenta_destino || 'cuenta'}</span>
-                </button>
-              )}
+              <div className="space-y-2.5 pt-1">
+                {selectedPocketDetail.tipo === 'compromiso_fijo' && Number(selectedPocketDetail.saldo_actual) > 0 && !selectedPocketDetail.pagado_este_ciclo && (
+                  <button
+                    onClick={() => setPayModalOpen(true)}
+                    className="w-full py-3.5 sm:py-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition active:scale-[0.98]"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Pagar compromiso desde {selectedPocketDetail.cuenta_destino || 'cuenta'}</span>
+                  </button>
+                )}
 
-              {selectedPocketDetail.pagado_este_ciclo && (
-                <button
-                  onClick={() => handleResetPocketCycle(selectedPocketDetail.id)}
-                  className="w-full py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition active:scale-[0.98]"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  <span>Reiniciar ciclo para el próximo mes</span>
-                </button>
-              )}
+                {selectedPocketDetail.pagado_este_ciclo && (
+                  <button
+                    onClick={() => handleResetPocketCycle(selectedPocketDetail.id)}
+                    className="w-full py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition active:scale-[0.98]"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    <span>Reiniciar ciclo para el próximo mes</span>
+                  </button>
+                )}
 
-              <button
-                onClick={() => {
-                  setExpenseForm({ pocketId: selectedPocketDetail.id, monto: '', nota: '' });
-                  setExpenseModalOpen(true);
-                }}
-                className="w-full py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition active:scale-[0.98]"
-              >
-                <Minus className="w-4 h-4" />
-                <span>Registrar gasto de este bolsillo</span>
-              </button>
-
-              <div className="flex gap-2.5 pt-1">
                 <button
                   onClick={() => {
-                    setEditingPocket(selectedPocketDetail);
-                    setPocketModalOpen(true);
+                    setExpenseForm({ pocketId: selectedPocketDetail.id, monto: '', nota: '' });
+                    setExpenseModalOpen(true);
                   }}
-                  className="flex-1 py-3 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 hover:text-white text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition active:scale-95"
+                  className="w-full py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition active:scale-[0.98]"
                 >
-                  <Edit3 className="w-4 h-4" />
-                  <span>Editar</span>
+                  <Minus className="w-4 h-4" />
+                  <span>Registrar gasto de este bolsillo</span>
                 </button>
 
-                <button
-                  onClick={() => handleDeletePocket(selectedPocketDetail.id)}
-                  className="py-3 px-4 rounded-xl bg-rose-950/30 border border-rose-900/40 text-rose-400 hover:bg-rose-900/40 text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 transition active:scale-95"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  <span>Borrar</span>
-                </button>
+                <div className="flex gap-2.5 pt-1">
+                  <button
+                    onClick={() => {
+                      setEditingPocket(selectedPocketDetail);
+                      setPocketModalOpen(true);
+                    }}
+                    className="flex-1 py-3 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 hover:text-white text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition active:scale-95"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                    <span>Editar</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleDeletePocket(selectedPocketDetail.id)}
+                    className="py-3 px-4 rounded-xl bg-rose-950/30 border border-rose-900/40 text-rose-400 hover:bg-rose-900/40 text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 transition active:scale-95"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Borrar</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -2062,7 +2069,7 @@ export default function App() {
             }
           }}
         >
-          <div className="bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl max-h-[92vh] flex flex-col overscroll-contain animate-apple-pop relative">
+          <div className="bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl max-h-[92vh] flex flex-col overscroll-contain animate-apple-pop relative pb-safe">
             
             {/* Confirmación de descarte de ingreso */}
             {showDiscardIncomeConfirm && (
@@ -2094,7 +2101,7 @@ export default function App() {
             )}
 
             {/* Header del Modal */}
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3 flex-shrink-0">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2.5 flex-shrink-0">
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-white text-base sm:text-lg">Entrar dinero</h3>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
@@ -2103,18 +2110,18 @@ export default function App() {
               </div>
               <button 
                 onClick={handleRequestCloseIncomeModal} 
-                className="text-slate-400 hover:text-white p-1.5 active:scale-90 rounded-full hover:bg-slate-800"
+                className="text-slate-400 hover:text-white p-2 active:scale-90 rounded-full hover:bg-slate-800"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Cabecera de Monto y Cuenta (Fija, no scrollea) */}
-            <div className="space-y-3 pt-3 flex-shrink-0">
+            <div className="space-y-2.5 pt-2.5 flex-shrink-0">
               <div>
-                <label className="text-xs text-slate-400 font-medium">Monto ingresado ($)</label>
+                <label className="text-[11px] sm:text-xs text-slate-400 font-medium">Monto ingresado ($)</label>
                 <div className="relative mt-1">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-400 font-bold">$</span>
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-400 font-bold text-lg">$</span>
                   <input
                     type="number"
                     inputMode="numeric"
@@ -2123,7 +2130,7 @@ export default function App() {
                       const val = Math.max(0, parseFloat(e.target.value) || 0);
                       setIncomingAmount(val);
                     }}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pl-8 pr-4 text-white font-black text-xl focus:outline-none focus:border-emerald-500 transition"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 pl-8 pr-4 text-white font-black text-lg sm:text-xl focus:outline-none focus:border-emerald-500 transition"
                     placeholder="0"
                     autoFocus
                   />
@@ -2132,22 +2139,22 @@ export default function App() {
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-xs text-slate-400 font-medium">Concepto</label>
+                  <label className="text-[11px] text-slate-400 font-medium">Concepto</label>
                   <input
                     type="text"
                     value={incomeSource}
                     onChange={(e) => setIncomeSource(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-2.5 text-xs text-white focus:outline-none focus:border-slate-700 mt-1"
-                    placeholder="ej. Pago cliente, Nómina..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-1.5 px-2.5 text-xs text-white focus:outline-none focus:border-slate-700 mt-0.5"
+                    placeholder="ej. Salario, Pago..."
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs text-slate-400 font-medium">Cuenta receptora</label>
+                  <label className="text-[11px] text-slate-400 font-medium">Cuenta receptora</label>
                   <select
                     value={incomeOriginAccount}
                     onChange={(e) => setIncomeOriginAccount(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-2 text-xs text-white mt-1"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-1.5 px-2 text-xs text-white mt-0.5"
                   >
                     {visibleAccounts.length === 0 ? (
                       <option value="Efectivo">Efectivo</option>
@@ -2161,25 +2168,25 @@ export default function App() {
               </div>
 
               {/* Botón Central Inteligente y Asignación Rápida a Libre */}
-              <div className="flex items-center gap-2 pt-0.5">
+              <div className="flex items-center gap-1.5 pt-0.5">
                 <button
                   type="button"
                   onClick={handleAskAI}
                   disabled={isAiLoading || !incomingAmount || incomingAmount <= 0}
-                  className="flex-1 py-2 px-3 rounded-xl bg-gradient-to-r from-purple-900/40 to-slate-800 border border-purple-500/30 hover:border-purple-500/60 text-purple-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-[0.98] disabled:opacity-40"
+                  className="flex-1 py-1.5 px-2.5 rounded-xl bg-gradient-to-r from-purple-900/40 to-slate-800 border border-purple-500/30 hover:border-purple-500/60 text-purple-200 text-[11px] sm:text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-[0.98] disabled:opacity-40"
                   title="Calcula automáticamente según urgencias de corte, metas y porcentajes base"
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-                  <span>{isAiLoading ? 'Analizando urgencias...' : 'Repartir con Copiloto IA'}</span>
+                  <Sparkles className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
+                  <span className="truncate">{isAiLoading ? 'Analizando...' : 'Repartir con Copiloto IA'}</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={balanceToFreePocket}
-                  className="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition active:scale-[0.98]"
+                  className="py-1.5 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] sm:text-xs font-semibold flex items-center gap-1 transition active:scale-[0.98] flex-shrink-0"
                   title="Asigna todo el porcentaje restante al bolsillo Libre"
                 >
-                  <Sliders className="w-3.5 h-3.5 text-amber-400" />
+                  <Sliders className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
                   <span>Restante a Libre</span>
                 </button>
               </div>
@@ -2191,13 +2198,13 @@ export default function App() {
               )}
 
               {/* Barra de progreso y validación 100% estricto */}
-              <div className="space-y-1.5 pt-1 border-t border-slate-800/60">
-                <div className="flex items-center justify-between text-xs font-semibold">
+              <div className="space-y-1 pt-1 border-t border-slate-800/60">
+                <div className="flex items-center justify-between text-[11px] sm:text-xs font-semibold">
                   <span className={isPercentageValid ? 'text-emerald-400' : currentTotalPercentage > 100 ? 'text-rose-400' : 'text-amber-400'}>
                     {isPercentageValid
                       ? '✓ 100% asignado exactamente'
                       : currentTotalPercentage > 100
-                      ? `Excedido: ${(currentTotalPercentage - 100).toFixed(1)}% de más`
+                      ? `Excedido: ${(currentTotalPercentage - 100).toFixed(1)}%`
                       : `Falta asignar: ${(100 - currentTotalPercentage).toFixed(1)}%`}
                   </span>
                   <span className="text-slate-400">
@@ -2206,17 +2213,17 @@ export default function App() {
                 </div>
 
                 {!isPercentageValid && incomingAmount > 0 && (
-                  <div className="text-[11px] text-amber-400/90 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1.5 rounded-xl flex items-center justify-between">
-                    <span>
+                  <div className="text-[11px] text-amber-400/90 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-xl flex items-center justify-between">
+                    <span className="truncate pr-1">
                       {currentTotalPercentage < 100
-                        ? `Debes repartir el 100% para continuar ($${Math.round(((100 - currentTotalPercentage) / 100) * incomingAmount).toLocaleString('es-CO')} restante)`
-                        : 'La suma supera el 100% del dinero ingresado'}
+                        ? `Faltan $${Math.round(((100 - currentTotalPercentage) / 100) * incomingAmount).toLocaleString('es-CO')}`
+                        : 'Suma supera el 100%'}
                     </span>
                     {currentTotalPercentage < 100 && (
                       <button
                         type="button"
                         onClick={balanceToFreePocket}
-                        className="text-amber-300 font-bold underline ml-2 flex-shrink-0"
+                        className="text-amber-300 font-bold underline flex-shrink-0"
                       >
                         Enviar a Libre
                       </button>
@@ -2227,7 +2234,7 @@ export default function App() {
             </div>
 
             {/* Lista Scrolleable Independiente de Bolsillos con Doble Input (% y $) */}
-            <div className="flex-1 overflow-y-auto overscroll-contain space-y-2.5 my-3 pr-1 max-h-[46vh]">
+            <div className="flex-1 overflow-y-auto overscroll-contain space-y-2 my-2.5 pr-1 max-h-[38vh] sm:max-h-[44vh]">
               {visiblePockets.map(pocket => {
                 const pct = percentages[pocket.id] !== undefined ? percentages[pocket.id] : 0;
                 const allocatedPesos = Math.round((pct / 100) * (incomingAmount || 0));
@@ -2235,23 +2242,23 @@ export default function App() {
                 const isCommitment = pocket.tipo === 'compromiso_fijo' || pocket.meta_monto || pocket.dia_vencimiento;
 
                 return (
-                  <div key={pocket.id} className="bg-slate-950/70 border border-slate-800/70 rounded-2xl p-3 space-y-2">
+                  <div key={pocket.id} className="bg-slate-950/70 border border-slate-800/70 rounded-2xl p-2.5 space-y-1.5">
                     {/* Fila superior de información */}
                     <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2 truncate pr-2">
+                      <div className="flex items-center gap-1.5 truncate pr-1">
                         <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: pocket.color }} />
-                        <span className="font-bold text-white truncate">{pocket.nombre}</span>
-                        <span className="text-[10px] text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                        <span className="font-bold text-white truncate text-xs">{pocket.nombre}</span>
+                        <span className="text-[9px] text-slate-400 bg-slate-900 px-1 py-0.5 rounded border border-slate-800 truncate">
                           {pocket.cuenta_destino || 'Bancolombia'}
                         </span>
                         {pocket.porcentaje_objetivo > 0 && (
-                          <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded font-semibold border border-emerald-500/20">
+                          <span className="text-[9px] text-emerald-400 bg-emerald-500/10 px-1 py-0.5 rounded font-semibold border border-emerald-500/20 flex-shrink-0">
                             {pocket.porcentaje_objetivo}% base
                           </span>
                         )}
                         {pocket.pagado_este_ciclo && (
-                          <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded font-medium border border-emerald-500/20">
-                            ✓ Pagado este ciclo
+                          <span className="text-[9px] text-emerald-400 bg-emerald-500/10 px-1 py-0.5 rounded font-medium border border-emerald-500/20 flex-shrink-0">
+                            ✓ Pagado
                           </span>
                         )}
                       </div>
@@ -2259,21 +2266,21 @@ export default function App() {
 
                     {/* Fila de compromiso: Cuánto falta en dinero y en días */}
                     {isCommitment && (
-                      <div className="flex items-center justify-between text-[11px] text-slate-400 bg-slate-900/50 px-2 py-1 rounded-lg border border-slate-800/40">
+                      <div className="flex items-center justify-between text-[10px] text-slate-400 bg-slate-900/50 px-2 py-0.5 rounded-lg border border-slate-800/40">
                         <div className="flex items-center gap-1 truncate">
                           {metrics.meta > 0 ? (
                             metrics.faltanteTotal > 0 ? (
-                              <span>Falta <strong className="text-slate-200">${metrics.faltanteTotal.toLocaleString('es-CO')}</strong> para meta</span>
+                              <span>Falta <strong className="text-slate-200">${metrics.faltanteTotal.toLocaleString('es-CO')}</strong></span>
                             ) : (
                               <span className="text-emerald-400 font-medium">Meta cubierta</span>
                             )
                           ) : (
-                            <span>Sin meta fija</span>
+                            <span>Sin meta</span>
                           )}
                         </div>
                         {metrics.daysLeft !== null && (
                           <span className={metrics.daysLeft <= 3 ? 'text-amber-400 font-semibold' : 'text-slate-400'}>
-                            {metrics.daysLeft === 0 ? '¡Vence hoy!' : `Vence en ${metrics.daysLeft} días (día ${pocket.dia_vencimiento})`}
+                            {metrics.daysLeft === 0 ? '¡Vence hoy!' : `Vence en ${metrics.daysLeft}d (día ${pocket.dia_vencimiento})`}
                           </span>
                         )}
                       </div>
@@ -2282,9 +2289,10 @@ export default function App() {
                     {/* Fila inferior: Inputs Híbridos (% y $) */}
                     <div className="flex items-center gap-2">
                       {/* Input Porcentaje */}
-                      <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 flex-1 focus-within:border-emerald-500 transition">
+                      <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl px-2 py-1.5 flex-1 focus-within:border-emerald-500 transition">
                         <input
                           type="number"
+                          inputMode="decimal"
                           step="0.5"
                           min="0"
                           max="100"
@@ -2303,6 +2311,7 @@ export default function App() {
                         <span className="text-slate-400 text-xs font-semibold pr-1">$</span>
                         <input
                           type="number"
+                          inputMode="numeric"
                           step="1000"
                           min="0"
                           value={allocatedPesos}
@@ -2327,7 +2336,7 @@ export default function App() {
               <button
                 onClick={handleConfirmAllocation}
                 disabled={!isPercentageValid || incomingAmount <= 0}
-                className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-30 disabled:cursor-not-allowed text-slate-950 font-bold text-xs sm:text-sm transition active:scale-[0.99] flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/10"
+                className="w-full py-3 sm:py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-30 disabled:cursor-not-allowed text-slate-950 font-bold text-xs sm:text-sm transition active:scale-[0.99] flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/10"
               >
                 <span>Confirmar reparto y ver traslados</span>
                 <ArrowRight className="w-4 h-4" />
@@ -2343,13 +2352,13 @@ export default function App() {
       {/* ======================================================== */}
       {profileModalOpen && (
         <div 
-          className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto"
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
           onClick={(e) => {
             if (e.target === e.currentTarget) setProfileModalOpen(false);
           }}
         >
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm sm:max-w-md w-full p-5 sm:p-6 space-y-4 shadow-2xl animate-apple-pop">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-3xl max-w-sm sm:max-w-md w-full p-5 sm:p-6 space-y-4 shadow-2xl animate-apple-pop pb-safe max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3 flex-shrink-0">
               <div>
                 <h3 className="font-bold text-white text-base flex items-center gap-2">
                   <UserIcon className="w-4 h-4 text-emerald-400" />
@@ -2359,13 +2368,13 @@ export default function App() {
                   Cambia entre tu economía personal y tus negocios.
                 </p>
               </div>
-              <button onClick={() => setProfileModalOpen(false)} className="text-slate-400 hover:text-white p-1.5 active:scale-90">
+              <button onClick={() => setProfileModalOpen(false)} className="text-slate-400 hover:text-white p-2 active:scale-90 rounded-full hover:bg-slate-800">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Lista de Perfiles Existentes */}
-            <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+            <div className="space-y-2 overflow-y-auto overscroll-contain flex-1 pr-1 max-h-56">
               {profilesList.map(prof => {
                 const isActive = prof.id === activeProfile;
                 return (
@@ -2401,7 +2410,7 @@ export default function App() {
                     {prof.id !== 'personal' && (
                       <button
                         onClick={() => handleDeleteProfile(prof.id)}
-                        className="text-slate-500 hover:text-rose-400 p-1.5 transition active:scale-90"
+                        className="text-slate-500 hover:text-rose-400 p-2 transition active:scale-90"
                         title="Eliminar este perfil"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -2413,7 +2422,7 @@ export default function App() {
             </div>
 
             {/* Formulario Crear Nuevo Perfil */}
-            <form onSubmit={handleCreateProfile} className="pt-2 border-t border-slate-800 space-y-2">
+            <form onSubmit={handleCreateProfile} className="pt-2 border-t border-slate-800 space-y-2 flex-shrink-0">
               <label className="text-xs text-slate-400 font-medium block">
                 + Crear nuevo perfil o negocio
               </label>
@@ -2442,23 +2451,28 @@ export default function App() {
       {/* HOJA DE TRASLADOS */}
       {/* ======================================================== */}
       {transfersSheetOpen && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md sm:max-w-lg w-full p-6 sm:p-7 space-y-4 sm:space-y-5 shadow-2xl my-6 max-h-[92vh] overflow-y-auto animate-apple-pop">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div 
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setTransfersSheetOpen(false);
+          }}
+        >
+          <div className="bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-3xl max-w-md sm:max-w-lg w-full p-5 sm:p-7 space-y-4 shadow-2xl max-h-[92vh] flex flex-col overscroll-contain animate-apple-pop pb-safe">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3 flex-shrink-0">
               <div className="flex items-center gap-2.5">
                 <ArrowRightLeft className="w-5 h-5 text-emerald-400" />
                 <h3 className="font-bold text-white text-base sm:text-lg">Guía de Traslados</h3>
               </div>
-              <button onClick={() => setTransfersSheetOpen(false)} className="text-slate-400 hover:text-white p-1.5 active:scale-90">
+              <button onClick={() => setTransfersSheetOpen(false)} className="text-slate-400 hover:text-white p-2 active:scale-90 rounded-full hover:bg-slate-800">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed flex-shrink-0">
               El dinero ingresó a <span className="font-bold text-white">{incomeOriginAccount}</span>. Haz estas transferencias en tus apps bancarias para dejar todo al día:
             </p>
 
-            <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
+            <div className="space-y-2.5 overflow-y-auto overscroll-contain flex-1 pr-1 max-h-64">
               {pendingTransfers.map(tr => {
                 const isChecked = Boolean(completedTransferIds[tr.id]);
                 const isSameAccount = tr.cuentaDestino.toLowerCase() === incomeOriginAccount.toLowerCase();
@@ -2502,7 +2516,7 @@ export default function App() {
                 setTransfersSheetOpen(false);
                 showToast('Transferencias completadas');
               }}
-              className="w-full py-3.5 sm:py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm transition active:scale-[0.98]"
+              className="w-full py-3.5 sm:py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm transition active:scale-[0.98] flex-shrink-0"
             >
               Listo, cuentas al día
             </button>
@@ -2514,16 +2528,21 @@ export default function App() {
       {/* MODAL: PAGAR COMPROMISO */}
       {/* ======================================================== */}
       {payModalOpen && selectedPocketDetail && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 sm:p-7 space-y-4 shadow-2xl animate-apple-pop">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div 
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setPayModalOpen(false);
+          }}
+        >
+          <div className="bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-3xl max-w-md w-full p-5 sm:p-7 space-y-4 shadow-2xl animate-apple-pop pb-safe max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3 flex-shrink-0">
               <h3 className="font-bold text-white text-base sm:text-lg">Pagar compromiso</h3>
-              <button onClick={() => setPayModalOpen(false)} className="text-slate-400 hover:text-white p-1.5 active:scale-90">
+              <button onClick={() => setPayModalOpen(false)} className="text-slate-400 hover:text-white p-2 active:scale-90 rounded-full hover:bg-slate-800">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-3.5 text-xs sm:text-sm text-slate-300">
+            <div className="space-y-3.5 text-xs sm:text-sm text-slate-300 overflow-y-auto overscroll-contain flex-1 pr-0.5">
               <p>Vas a liquidar el compromiso <span className="font-bold text-white">{selectedPocketDetail.nombre}</span>.</p>
 
               <div className="bg-slate-950 border border-slate-800 p-4 sm:p-5 rounded-2xl text-center space-y-1">
@@ -2541,7 +2560,7 @@ export default function App() {
               </p>
             </div>
 
-            <div className="flex gap-2.5 pt-2">
+            <div className="flex gap-2.5 pt-2 flex-shrink-0">
               <button
                 type="button"
                 onClick={() => setPayModalOpen(false)}
@@ -2565,22 +2584,25 @@ export default function App() {
       {/* MODAL: REGISTRAR GASTO */}
       {/* ======================================================== */}
       {expenseModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 sm:p-7 space-y-4 shadow-2xl animate-apple-pop">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl max-w-md w-full p-5 sm:p-7 space-y-4 shadow-2xl animate-apple-pop max-h-[92vh] flex flex-col pb-safe">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3 flex-shrink-0">
               <h3 className="font-bold text-white text-base sm:text-lg">Registrar gasto</h3>
-              <button onClick={() => setExpenseModalOpen(false)} className="text-slate-400 hover:text-white p-1.5 active:scale-90">
+              <button 
+                onClick={() => setExpenseModalOpen(false)} 
+                className="text-slate-400 hover:text-white p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl active:scale-90"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleRegisterExpense} className="space-y-4">
+            <form onSubmit={handleRegisterExpense} className="space-y-4 overflow-y-auto overscroll-contain flex-1 pr-1">
               <div>
                 <label className="text-xs sm:text-sm font-medium text-slate-300">Bolsillo</label>
                 <select
                   value={expenseForm.pocketId}
                   onChange={(e) => setExpenseForm(prev => ({ ...prev, pocketId: e.target.value }))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs sm:text-sm text-white focus:outline-none mt-1"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-3.5 text-xs sm:text-sm text-white focus:outline-none mt-1 min-h-[44px]"
                   required
                 >
                   <option value="">Selecciona un bolsillo...</option>
@@ -2596,9 +2618,10 @@ export default function App() {
                 <label className="text-xs sm:text-sm font-medium text-slate-300">Monto del gasto ($)</label>
                 <input
                   type="number"
+                  inputMode="numeric"
                   value={expenseForm.monto}
                   onChange={(e) => setExpenseForm(prev => ({ ...prev, monto: e.target.value }))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-3.5 text-base sm:text-lg font-bold text-white focus:outline-none mt-1"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-3.5 text-base sm:text-lg font-bold text-white focus:outline-none mt-1 min-h-[44px]"
                   placeholder="0"
                   required
                 />
@@ -2610,14 +2633,14 @@ export default function App() {
                   type="text"
                   value={expenseForm.nota}
                   onChange={(e) => setExpenseForm(prev => ({ ...prev, nota: e.target.value }))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs sm:text-sm text-white focus:outline-none mt-1"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs sm:text-sm text-white focus:outline-none mt-1 min-h-[44px]"
                   placeholder="ej. Gasolina en Terpel, Almuerzo..."
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full py-3.5 rounded-xl bg-slate-100 hover:bg-white text-slate-950 font-bold text-xs sm:text-sm transition mt-2 active:scale-[0.98]"
+                className="w-full py-3.5 rounded-xl bg-slate-100 hover:bg-white text-slate-950 font-bold text-xs sm:text-sm transition mt-2 min-h-[44px] active:scale-[0.98]"
               >
                 Guardar gasto
               </button>
@@ -2630,25 +2653,28 @@ export default function App() {
       {/* MODAL: CREAR / EDITAR BOLSILLO */}
       {/* ======================================================== */}
       {pocketModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md sm:max-w-lg w-full p-6 sm:p-7 space-y-4 sm:space-y-5 shadow-2xl my-6 max-h-[92vh] overflow-y-auto animate-apple-pop">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl max-w-md sm:max-w-lg w-full p-5 sm:p-7 space-y-4 sm:space-y-5 shadow-2xl max-h-[92vh] flex flex-col animate-apple-pop pb-safe">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3 flex-shrink-0">
               <h3 className="font-bold text-white text-base sm:text-lg">
                 {editingPocket.id ? 'Editar bolsillo' : 'Nuevo bolsillo'}
               </h3>
-              <button onClick={() => setPocketModalOpen(false)} className="text-slate-400 hover:text-white p-1.5 active:scale-90">
+              <button 
+                onClick={() => setPocketModalOpen(false)} 
+                className="text-slate-400 hover:text-white p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl active:scale-90"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSavePocket} className="space-y-4">
+            <form onSubmit={handleSavePocket} className="space-y-4 overflow-y-auto overscroll-contain flex-1 pr-1">
               <div>
                 <label className="text-xs sm:text-sm font-medium text-slate-300">Nombre del bolsillo</label>
                 <input
                   type="text"
                   value={editingPocket.nombre}
                   onChange={(e) => setEditingPocket(prev => ({ ...prev, nombre: e.target.value }))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs sm:text-sm text-white focus:outline-none mt-1"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs sm:text-sm text-white focus:outline-none mt-1 min-h-[44px]"
                   placeholder="ej. Gasolina, Arriendo, YouTube..."
                   required
                 />
@@ -2660,7 +2686,7 @@ export default function App() {
                 <select
                   value={editingPocket.cuenta_destino}
                   onChange={(e) => setEditingPocket(prev => ({ ...prev, cuenta_destino: e.target.value }))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs sm:text-sm text-white mt-1"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs sm:text-sm text-white mt-1 min-h-[44px]"
                 >
                   {visibleAccounts.map(acc => (
                     <option key={acc.id} value={acc.nombre}>{acc.nombre}</option>
@@ -2674,7 +2700,7 @@ export default function App() {
                   <select
                     value={editingPocket.tipo}
                     onChange={(e) => setEditingPocket(prev => ({ ...prev, tipo: e.target.value }))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs sm:text-sm text-white mt-1"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs sm:text-sm text-white mt-1 min-h-[44px]"
                   >
                     <option value="compromiso_fijo">Compromiso</option>
                     <option value="gasto_corriente">Gasto Diario</option>
@@ -2689,7 +2715,7 @@ export default function App() {
                   <select
                     value={editingPocket.periodicidad}
                     onChange={(e) => setEditingPocket(prev => ({ ...prev, periodicidad: e.target.value }))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs sm:text-sm text-white mt-1"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs sm:text-sm text-white mt-1 min-h-[44px]"
                   >
                     <option value="mensual">Mensual</option>
                     <option value="quincenal">Quincenal</option>
@@ -2704,11 +2730,12 @@ export default function App() {
                   <label className="text-xs sm:text-sm font-medium text-slate-300">Día vencimiento</label>
                   <input
                     type="number"
+                    inputMode="numeric"
                     min="1"
                     max="31"
                     value={editingPocket.dia_vencimiento}
                     onChange={(e) => setEditingPocket(prev => ({ ...prev, dia_vencimiento: e.target.value }))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs sm:text-sm text-white mt-1"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs sm:text-sm text-white mt-1 min-h-[44px]"
                     placeholder="ej. 15"
                   />
                 </div>
@@ -2718,11 +2745,12 @@ export default function App() {
                     <label className="text-xs sm:text-sm font-medium text-slate-300">2do vencimiento</label>
                     <input
                       type="number"
+                      inputMode="numeric"
                       min="1"
                       max="31"
                       value={editingPocket.dia_vencimiento_2}
                       onChange={(e) => setEditingPocket(prev => ({ ...prev, dia_vencimiento_2: e.target.value }))}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs sm:text-sm text-white mt-1"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs sm:text-sm text-white mt-1 min-h-[44px]"
                       placeholder="ej. 30"
                     />
                   </div>
@@ -2733,9 +2761,10 @@ export default function App() {
                 <label className="text-xs sm:text-sm font-medium text-slate-300">Meta periódica ($)</label>
                 <input
                   type="number"
+                  inputMode="numeric"
                   value={editingPocket.meta_monto}
                   onChange={(e) => setEditingPocket(prev => ({ ...prev, meta_monto: e.target.value }))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs sm:text-sm text-white mt-1"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs sm:text-sm text-white mt-1 min-h-[44px]"
                   placeholder="ej. 1200000"
                 />
               </div>
@@ -2747,12 +2776,13 @@ export default function App() {
                 </div>
                 <input
                   type="number"
+                  inputMode="decimal"
                   step="0.5"
                   min="0"
                   max="100"
                   value={editingPocket.porcentaje_objetivo || ''}
                   onChange={(e) => setEditingPocket(prev => ({ ...prev, porcentaje_objetivo: e.target.value }))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs sm:text-sm text-white mt-1"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs sm:text-sm text-white mt-1 min-h-[44px]"
                   placeholder="ej. 10 para apartar el 10% de cada ingreso"
                 />
                 <p className="text-[11px] text-slate-400 mt-1">
@@ -2764,9 +2794,10 @@ export default function App() {
                 <label className="text-xs sm:text-sm font-medium text-slate-300">Saldo actual ($)</label>
                 <input
                   type="number"
+                  inputMode="numeric"
                   value={editingPocket.saldo_actual}
                   onChange={(e) => setEditingPocket(prev => ({ ...prev, saldo_actual: e.target.value }))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs sm:text-sm text-white mt-1"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs sm:text-sm text-white mt-1 min-h-[44px]"
                   placeholder="0"
                 />
               </div>
@@ -2779,17 +2810,17 @@ export default function App() {
                       key={c}
                       type="button"
                       onClick={() => setEditingPocket(prev => ({ ...prev, color: c }))}
-                      className={`w-7 h-7 rounded-full transition ${editingPocket.color === c ? 'scale-125 ring-2 ring-white' : 'opacity-60 hover:opacity-100'}`}
+                      className={`w-8 h-8 rounded-full transition ${editingPocket.color === c ? 'scale-125 ring-2 ring-white' : 'opacity-60 hover:opacity-100'}`}
                       style={{ backgroundColor: c }}
                     />
                   ))}
                 </div>
               </div>
 
-              <div className="space-y-2 pt-2">
+              <div className="space-y-2 pt-2 pb-1">
                 <button
                   type="submit"
-                  className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm transition active:scale-[0.98]"
+                  className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm transition min-h-[44px] active:scale-[0.98]"
                 >
                   {editingPocket.id ? 'Guardar cambios' : 'Crear bolsillo'}
                 </button>
@@ -2802,7 +2833,7 @@ export default function App() {
                       setPocketModalOpen(false);
                       handleDeletePocket(id);
                     }}
-                    className="w-full py-3 rounded-xl bg-rose-950/30 hover:bg-rose-900/40 border border-rose-900/40 text-rose-400 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition active:scale-[0.98]"
+                    className="w-full py-3 rounded-xl bg-rose-950/30 hover:bg-rose-900/40 border border-rose-900/40 text-rose-400 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition min-h-[44px] active:scale-[0.98]"
                   >
                     <Trash2 className="w-4 h-4" />
                     <span>Borrar este bolsillo</span>
@@ -2818,25 +2849,28 @@ export default function App() {
       {/* MODAL: CREAR / EDITAR CUENTA BANCARIA */}
       {/* ======================================================== */}
       {accountModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 sm:p-7 space-y-4 shadow-2xl animate-apple-pop">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl max-w-md w-full p-5 sm:p-7 space-y-4 shadow-2xl animate-apple-pop max-h-[90vh] flex flex-col pb-safe">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3 flex-shrink-0">
               <h3 className="font-bold text-white text-base sm:text-lg">
                 {editingAccount.id ? 'Editar Cuenta' : 'Nueva Cuenta Bancaria'}
               </h3>
-              <button onClick={() => setAccountModalOpen(false)} className="text-slate-400 hover:text-white p-1.5 active:scale-90">
+              <button 
+                onClick={() => setAccountModalOpen(false)} 
+                className="text-slate-400 hover:text-white p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl active:scale-90"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveAccount} className="space-y-4">
+            <form onSubmit={handleSaveAccount} className="space-y-4 overflow-y-auto overscroll-contain flex-1 pr-1">
               <div>
                 <label className="text-xs sm:text-sm font-medium text-slate-300">Nombre de la cuenta o app</label>
                 <input
                   type="text"
                   value={editingAccount.nombre}
                   onChange={(e) => setEditingAccount(prev => ({ ...prev, nombre: e.target.value }))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs sm:text-sm text-white focus:outline-none mt-1"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs sm:text-sm text-white focus:outline-none mt-1 min-h-[44px]"
                   placeholder="ej. Nequi, Bancolombia, Nu, Lulo..."
                   required
                 />
@@ -2847,7 +2881,7 @@ export default function App() {
                 <select
                   value={editingAccount.tipo}
                   onChange={(e) => setEditingAccount(prev => ({ ...prev, tipo: e.target.value }))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs sm:text-sm text-white mt-1"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs sm:text-sm text-white mt-1 min-h-[44px]"
                 >
                   <option value="banco">Cuenta de Ahorros / Corriente</option>
                   <option value="billetera">Billetera Digital (Nequi, Daviplata)</option>
@@ -2856,10 +2890,10 @@ export default function App() {
                 </select>
               </div>
 
-              <div className="space-y-2 pt-2">
+              <div className="space-y-2 pt-2 pb-1">
                 <button
                   type="submit"
-                  className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm transition active:scale-[0.98]"
+                  className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm transition min-h-[44px] active:scale-[0.98]"
                 >
                   {editingAccount.id ? 'Guardar Cambios' : 'Crear Cuenta'}
                 </button>
@@ -2872,7 +2906,7 @@ export default function App() {
                       setAccountModalOpen(false);
                       handleDeleteAccount(id);
                     }}
-                    className="w-full py-3 rounded-xl bg-rose-950/30 hover:bg-rose-900/40 border border-rose-900/40 text-rose-400 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition active:scale-[0.98]"
+                    className="w-full py-3 rounded-xl bg-rose-950/30 hover:bg-rose-900/40 border border-rose-900/40 text-rose-400 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition min-h-[44px] active:scale-[0.98]"
                   >
                     <Trash2 className="w-4 h-4" />
                     <span>Borrar esta cuenta</span>
@@ -2888,9 +2922,9 @@ export default function App() {
       {/* MODAL: DESGLOSE DETALLADO DE PORCENTAJES Y PATRIMONIO */}
       {/* ======================================================== */}
       {distributionModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 sm:p-7 space-y-4 shadow-2xl animate-apple-pop max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl max-w-lg w-full p-5 sm:p-7 space-y-4 shadow-2xl animate-apple-pop max-h-[92vh] flex flex-col pb-safe">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3 flex-shrink-0">
               <div>
                 <h3 className="font-bold text-white text-base sm:text-lg flex items-center gap-2">
                   <PieChart className="w-5 h-5 text-emerald-400" />
@@ -2902,110 +2936,112 @@ export default function App() {
               </div>
               <button 
                 onClick={() => setDistributionModalOpen(false)} 
-                className="text-slate-400 hover:text-white p-1.5 active:scale-90"
+                className="text-slate-400 hover:text-white p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl active:scale-90"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Resumen de los 3 saldos */}
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800">
-                <span className="text-[10px] text-slate-400 block font-medium">Libre</span>
-                <span className="text-xs sm:text-sm font-bold text-emerald-400 mt-0.5 block truncate">
-                  ${freeBalance.toLocaleString('es-CO')}
-                </span>
-                <span className="text-[10px] text-slate-400 font-medium">
-                  {totalBalance > 0 ? Math.round((freeBalance / totalBalance) * 100) : 0}%
-                </span>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800">
-                <span className="text-[10px] text-slate-400 block font-medium">Bolsillos</span>
-                <span className="text-xs sm:text-sm font-bold text-slate-300 mt-0.5 block truncate">
-                  ${committedBalance.toLocaleString('es-CO')}
-                </span>
-                <span className="text-[10px] text-slate-400 font-medium">
-                  {totalBalance > 0 ? Math.round((committedBalance / totalBalance) * 100) : 0}%
-                </span>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800">
-                <span className="text-[10px] text-slate-400 block font-medium">Total</span>
-                <span className="text-xs sm:text-sm font-bold text-white mt-0.5 block truncate">
-                  ${totalBalance.toLocaleString('es-CO')}
-                </span>
-                <span className="text-[10px] text-slate-400 font-medium">100%</span>
-              </div>
-            </div>
-
-            {/* Desglose por Categoría */}
-            <div className="space-y-2 pt-1">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block px-1">
-                Por Categoría
-              </span>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-slate-300"><span className="w-2 h-2 rounded-full bg-rose-500" /> Fijos</span>
-                  <span className="font-bold text-white">{distributionByCategory.compromisos}%</span>
+            <div className="space-y-4 overflow-y-auto overscroll-contain flex-1 pr-1">
+              {/* Resumen de los 3 saldos */}
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block font-medium">Libre</span>
+                  <span className="text-xs sm:text-sm font-bold text-emerald-400 mt-0.5 block truncate">
+                    ${freeBalance.toLocaleString('es-CO')}
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-medium">
+                    {totalBalance > 0 ? Math.round((freeBalance / totalBalance) * 100) : 0}%
+                  </span>
                 </div>
-                <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-slate-300"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Diario</span>
-                  <span className="font-bold text-white">{distributionByCategory.diario}%</span>
+
+                <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block font-medium">Bolsillos</span>
+                  <span className="text-xs sm:text-sm font-bold text-slate-300 mt-0.5 block truncate">
+                    ${committedBalance.toLocaleString('es-CO')}
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-medium">
+                    {totalBalance > 0 ? Math.round((committedBalance / totalBalance) * 100) : 0}%
+                  </span>
                 </div>
-                <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-slate-300"><span className="w-2 h-2 rounded-full bg-blue-500" /> Reserva</span>
-                  <span className="font-bold text-white">{distributionByCategory.reserva}%</span>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-slate-300"><span className="w-2 h-2 rounded-full bg-purple-500" /> Libre</span>
-                  <span className="font-bold text-white">{distributionByCategory.libre}%</span>
+
+                <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block font-medium">Total</span>
+                  <span className="text-xs sm:text-sm font-bold text-white mt-0.5 block truncate">
+                    ${totalBalance.toLocaleString('es-CO')}
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-medium">100%</span>
                 </div>
               </div>
-            </div>
 
-            {/* Desglose por Bolsillo */}
-            <div className="space-y-2 pt-1">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block px-1">
-                Participación por Bolsillo
-              </span>
+              {/* Desglose por Categoría */}
+              <div className="space-y-2 pt-1">
+                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block px-1">
+                  Por Categoría
+                </span>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-slate-300"><span className="w-2 h-2 rounded-full bg-rose-500" /> Fijos</span>
+                    <span className="font-bold text-white">{distributionByCategory.compromisos}%</span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-slate-300"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Diario</span>
+                    <span className="font-bold text-white">{distributionByCategory.diario}%</span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-slate-300"><span className="w-2 h-2 rounded-full bg-blue-500" /> Reserva</span>
+                    <span className="font-bold text-white">{distributionByCategory.reserva}%</span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-slate-300"><span className="w-2 h-2 rounded-full bg-purple-500" /> Libre</span>
+                    <span className="font-bold text-white">{distributionByCategory.libre}%</span>
+                  </div>
+                </div>
+              </div>
 
-              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                {visiblePockets.map(pocket => {
-                  const saldo = Number(pocket.saldo_actual || 0);
-                  const sharePct = totalBalance > 0 ? Number(((saldo / totalBalance) * 100).toFixed(1)) : 0;
-                  const metrics = getPocketWeeklyMetrics(pocket);
+              {/* Desglose por Bolsillo */}
+              <div className="space-y-2 pt-1">
+                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block px-1">
+                  Participación por Bolsillo
+                </span>
 
-                  return (
-                    <div key={pocket.id} className="p-3 rounded-2xl bg-slate-950/70 border border-slate-800/80 flex items-center justify-between">
-                      <div className="flex items-center gap-2.5 truncate pr-2">
-                        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: pocket.color }} />
-                        <div className="truncate">
-                          <span className="font-semibold text-xs sm:text-sm text-white block truncate">{pocket.nombre}</span>
-                          <span className="text-[10px] text-slate-400">
-                            {pocket.cuenta_destino || 'Bancolombia'}
-                            {pocket.porcentaje_objetivo > 0 && ` · ${pocket.porcentaje_objetivo}% fijo`}
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  {visiblePockets.map(pocket => {
+                    const saldo = Number(pocket.saldo_actual || 0);
+                    const sharePct = totalBalance > 0 ? Number(((saldo / totalBalance) * 100).toFixed(1)) : 0;
+                    const metrics = getPocketWeeklyMetrics(pocket);
+
+                    return (
+                      <div key={pocket.id} className="p-3 rounded-2xl bg-slate-950/70 border border-slate-800/80 flex items-center justify-between">
+                        <div className="flex items-center gap-2.5 truncate pr-2">
+                          <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: pocket.color }} />
+                          <div className="truncate">
+                            <span className="font-semibold text-xs sm:text-sm text-white block truncate">{pocket.nombre}</span>
+                            <span className="text-[10px] text-slate-400">
+                              {pocket.cuenta_destino || 'Bancolombia'}
+                              {pocket.porcentaje_objetivo > 0 && ` · ${pocket.porcentaje_objetivo}% fijo`}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="text-right flex-shrink-0">
+                          <span className="font-bold text-xs sm:text-sm text-white block">
+                            ${saldo.toLocaleString('es-CO')}
+                          </span>
+                          <span className="text-[11px] text-emerald-400 font-semibold">
+                            {sharePct}% del total
                           </span>
                         </div>
                       </div>
-
-                      <div className="text-right flex-shrink-0">
-                        <span className="font-bold text-xs sm:text-sm text-white block">
-                          ${saldo.toLocaleString('es-CO')}
-                        </span>
-                        <span className="text-[11px] text-emerald-400 font-semibold">
-                          {sharePct}% del total
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
             <button
               onClick={() => setDistributionModalOpen(false)}
-              className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs sm:text-sm transition mt-2"
+              className="w-full py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs sm:text-sm transition mt-2 min-h-[44px] flex-shrink-0"
             >
               Cerrar
             </button>
@@ -3017,14 +3053,14 @@ export default function App() {
       {/* MODAL DOBLE CONFIRMACIÓN: RESTABLECER DE FÁBRICA */}
       {/* ======================================================== */}
       {resetModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-rose-900/40 rounded-3xl p-6 w-full max-w-md shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-slate-900 border border-rose-900/40 rounded-t-3xl sm:rounded-3xl p-6 sm:p-7 w-full max-w-md shadow-2xl relative animate-in fade-in zoom-in-95 duration-200 pb-safe">
             <button
               onClick={() => {
                 setResetModalOpen(false);
                 setResetStep(1);
               }}
-              className="absolute top-5 right-5 p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              className="absolute top-4 right-4 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
             >
               <X className="w-5 h-5" />
             </button>
