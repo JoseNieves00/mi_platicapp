@@ -34,11 +34,12 @@ import {
   PieChart,
   Sliders,
   Percent,
-  Clock
+  Clock,
+  ChevronDown
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { suggestAllocationWithAI, analyzeFinancesWithAI } from './services/ai';
-import { getPocketWeeklyMetrics, getSegmentedBalances, calculatePredefinedAllocation, calculateWeeklyTargetAllocation } from './services/financialMath';
+import { getPocketWeeklyMetrics, getSegmentedBalances, calculatePredefinedAllocation, calculateWeeklyTargetAllocation, checkAndResetMonthlyCycle } from './services/financialMath';
 import { fetchPockets, savePocket, deletePocket, savePocketsBatch, clearAllLocalUserData, resetAllUserDataAndCloud } from './services/pockets';
 import { fetchAccounts, saveAccount, deleteAccount } from './services/accounts';
 import { getStoredConfig, saveStoredConfig } from './services/config';
@@ -87,10 +88,38 @@ export default function App() {
   const [isResetting, setIsResetting] = useState(false);
   const [distributionModalOpen, setDistributionModalOpen] = useState(false);
 
-  // Multi-Perfil (Personal vs Empresa)
+  // Multi-Perfil y Espacios de Trabajo
+  const [profilesList, setProfilesList] = useState(() => {
+    try {
+      const stored = localStorage.getItem('platicapp_profiles_list');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    const legacyBusiness = localStorage.getItem('platicapp_business_name');
+    const legacyActive = localStorage.getItem('platicapp_active_profile');
+    if (legacyBusiness || legacyActive === 'business') {
+      return [
+        { id: 'personal', name: localStorage.getItem('platicapp_personal_name') || 'Personal' },
+        { id: 'business', name: legacyBusiness || 'Mi Empresa' }
+      ];
+    }
+    return [
+      { id: 'personal', name: localStorage.getItem('platicapp_personal_name') || 'Personal' }
+    ];
+  });
   const [activeProfile, setActiveProfile] = useState(() => localStorage.getItem('platicapp_active_profile') || 'personal');
-  const [personalProfileName, setPersonalProfileName] = useState(() => localStorage.getItem('platicapp_personal_name') || 'Personal');
-  const [businessProfileName, setBusinessProfileName] = useState(() => localStorage.getItem('platicapp_business_name') || 'Mi Empresa');
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [newProfileNameInput, setNewProfileNameInput] = useState('');
+  const [showDiscardIncomeConfirm, setShowDiscardIncomeConfirm] = useState(false);
+
+  const currentProfileName = useMemo(() => {
+    const found = profilesList.find(p => p.id === activeProfile);
+    return found ? found.name : 'Personal';
+  }, [profilesList, activeProfile]);
+  const personalProfileName = profilesList.find(p => p.id === 'personal')?.name || 'Personal';
+  const businessProfileName = profilesList.find(p => p.id === 'business')?.name || 'Mi Empresa';
 
   // Formulario Crear / Editar Bolsillo
   const [editingPocket, setEditingPocket] = useState({
@@ -250,12 +279,16 @@ export default function App() {
       fetchPockets(),
       fetchAccounts()
     ]);
-    setPockets(pocketsData);
+    const { updated: refreshedPockets, hasChanges } = checkAndResetMonthlyCycle(pocketsData);
+    if (hasChanges) {
+      await savePocketsBatch(refreshedPockets);
+    }
+    setPockets(refreshedPockets);
     setAccounts(accountsData);
     if (accountsData.length > 0) {
       setIncomeOriginAccount(accountsData[0].nombre);
     }
-    initializePercentages(pocketsData);
+    initializePercentages(refreshedPockets);
   };
 
   // Colecciones filtradas por perfil activo (Personal vs Empresa)
@@ -364,12 +397,84 @@ export default function App() {
     setPercentages(prev => ({ ...prev, [pocketId]: num }));
   };
 
+  const handleSelectProfile = (profId) => {
+    setActiveProfile(profId);
+    localStorage.setItem('platicapp_active_profile', profId);
+    setProfileModalOpen(false);
+    showToast(`Cambiado a perfil: ${profilesList.find(p => p.id === profId)?.name || profId}`);
+  };
+
+  const handleCreateProfile = (e) => {
+    e.preventDefault();
+    const trimmed = newProfileNameInput.trim();
+    if (!trimmed) return;
+    const newId = `perfil_${Date.now()}`;
+    const updated = [...profilesList, { id: newId, name: trimmed }];
+    setProfilesList(updated);
+    localStorage.setItem('platicapp_profiles_list', JSON.stringify(updated));
+    setNewProfileNameInput('');
+    setActiveProfile(newId);
+    localStorage.setItem('platicapp_active_profile', newId);
+    setProfileModalOpen(false);
+    showToast(`Perfil "${trimmed}" creado`);
+  };
+
+  const handleDeleteProfile = (profId) => {
+    if (profId === 'personal') {
+      showToast('No puedes eliminar el perfil Personal principal');
+      return;
+    }
+    const updated = profilesList.filter(p => p.id !== profId);
+    setProfilesList(updated);
+    localStorage.setItem('platicapp_profiles_list', JSON.stringify(updated));
+    if (activeProfile === profId) {
+      setActiveProfile('personal');
+      localStorage.setItem('platicapp_active_profile', 'personal');
+    }
+    showToast('Perfil eliminado');
+  };
+
+  // Limpieza total del modal de entrar dinero para que no queden datos residuales
+  const resetIncomingModal = () => {
+    setIncomingAmount('');
+    setIncomeSource('');
+    setPercentages({});
+    setAiReasonings({});
+    setAiGeneralAdvice('');
+    setShowDiscardIncomeConfirm(false);
+    setIncomeModalOpen(false);
+  };
+
+  const handleOpenIncomeModal = () => {
+    // Inicializar limpio con los porcentajes base de los bolsillos del perfil activo
+    const predefined = calculatePredefinedAllocation(0, visiblePockets);
+    setPercentages(predefined.percentages);
+    setIncomingAmount('');
+    setIncomeSource('');
+    setAiReasonings({});
+    setAiGeneralAdvice('');
+    setShowDiscardIncomeConfirm(false);
+    setIncomeModalOpen(true);
+  };
+
+  const handleRequestCloseIncomeModal = () => {
+    if (incomingAmount && Number(incomingAmount) > 0) {
+      setShowDiscardIncomeConfirm(true);
+    } else {
+      resetIncomingModal();
+    }
+  };
+
   const balanceToFreePocket = () => {
     const targetPockets = visiblePockets;
     const freePocket = targetPockets.find(p => p.tipo === 'libre') || 
                        targetPockets.find(p => p.nombre.toLowerCase().includes('libre')) ||
+                       targetPockets.find(p => !p.porcentaje_objetivo) ||
                        targetPockets[0];
-    if (!freePocket) return;
+    if (!freePocket) {
+      showToast('Crea un bolsillo para asignar el dinero');
+      return;
+    }
 
     const otherSum = Object.entries(percentages)
       .filter(([id]) => id !== freePocket.id && targetPockets.some(p => p.id === id))
@@ -383,24 +488,6 @@ export default function App() {
     showToast(`Restante (${needed}%) llevado a ${freePocket.nombre}`);
   };
 
-  // Asignar porcentajes predeterminados guardados en bolsillos
-  const handleApplyPredefinedPercentages = () => {
-    const res = calculatePredefinedAllocation(incomingAmount || 100, visiblePockets);
-    setPercentages(res.percentages);
-    showToast('Porcentajes base aplicados');
-  };
-
-  // Asignar por metas y cuotas de la semana
-  const handleApplyWeeklyQuotas = () => {
-    if (!incomingAmount || incomingAmount <= 0) {
-      showToast('Ingresa un monto para calcular cuotas');
-      return;
-    }
-    const res = calculateWeeklyTargetAllocation(incomingAmount, visiblePockets);
-    setPercentages(res.percentages);
-    showToast('Cuotas de esta semana calculadas');
-  };
-
   // Generar Tip inteligente para Inicio basado en datos reales
   const handleRefreshHomeTip = async () => {
     setIsRefreshingTip(true);
@@ -409,7 +496,7 @@ export default function App() {
         pockets: visiblePockets, 
         history: visibleHistory, 
         profile: activeProfile,
-        profileName: activeProfile === 'business' ? businessProfileName : personalProfileName,
+        profileName: currentProfileName,
         question: 'Dame un tip breve de 2 líneas sobre cómo dispersar o gestionar el dinero entre mis cuentas bancarias y bolsillos.' 
       });
       const tipText = res.tips?.[0] || res.resumen_ejecutivo;
@@ -420,9 +507,12 @@ export default function App() {
     }
   };
 
-  // Sugerencia de IA al repartir dinero
+  // Sugerencia de Copiloto IA al repartir dinero (Urgencia, vencimiento y cuotas)
   const handleAskAI = async () => {
-    if (!incomingAmount || incomingAmount <= 0) return;
+    if (!incomingAmount || incomingAmount <= 0) {
+      showToast('Ingresa un monto para calcular con Copiloto');
+      return;
+    }
     setIsAiLoading(true);
     setAiError('');
 
@@ -438,18 +528,24 @@ export default function App() {
       setPercentages(newPcts);
       setAiReasonings(newReasons);
       setAiGeneralAdvice(result.consejo_general || '');
+      showToast('✨ Copiloto asignó prioridades');
     } catch {
+      // Fallback local determinista y transparente
       const res = calculateWeeklyTargetAllocation(incomingAmount, visiblePockets);
       setPercentages(res.percentages);
-      setAiGeneralAdvice('Reparto calculado automáticamente según prioridades de esta semana.');
+      setAiGeneralAdvice('Reparto calculado por urgencia de vencimientos y cuotas pendientes.');
+      showToast('✨ Asignado por urgencia de compromisos');
     } finally {
       setIsAiLoading(false);
     }
   };
 
-  // Confirmar y Guardar Reparto + HOJA DE TRASLADOS
+  // Confirmar y Guardar Reparto + HOJA DE TRASLADOS (Solo traslados físicos interbancarios)
   const handleConfirmAllocation = async () => {
-    if (!isPercentageValid || incomingAmount <= 0) return;
+    if (!isPercentageValid || incomingAmount <= 0) {
+      showToast('Debes repartir el 100% exacto del dinero ingresado');
+      return;
+    }
 
     const allocationsSummary = [];
     const transfersGenerated = [];
@@ -462,19 +558,23 @@ export default function App() {
 
       const pct = percentages[p.id] || 0;
       const addedMoney = Math.round((pct / 100) * incomingAmount);
+      const pocketAcc = (p.cuenta_destino || incomeOriginAccount || '').trim();
       
       allocationsSummary.push({ 
         pocketNombre: p.nombre, 
-        cuenta: p.cuenta_destino || 'Bancolombia',
+        cuenta: pocketAcc,
         porcentaje: pct, 
         monto: addedMoney 
       });
 
-      if (addedMoney > 0) {
+      // Solo generar traslado físico si la cuenta receptora del dinero es DISTINTA a la cuenta del bolsillo
+      const originAcc = (incomeOriginAccount || '').trim();
+      if (addedMoney > 0 && pocketAcc && originAcc && pocketAcc.toLowerCase() !== originAcc.toLowerCase()) {
         transfersGenerated.push({
           id: `tr-${p.id}-${Date.now()}`,
           pocketNombre: p.nombre,
-          cuentaDestino: p.cuenta_destino || 'Cuenta Destino',
+          cuentaOrigen: originAcc,
+          cuentaDestino: pocketAcc,
           monto: addedMoney,
           color: p.color
         });
@@ -505,28 +605,31 @@ export default function App() {
     localStorage.setItem('platicapp_history_real_v1', JSON.stringify(updatedHistory));
 
     confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
-    setIncomeModalOpen(false);
+    resetIncomingModal();
 
     if (transfersGenerated.length > 0) {
       setPendingTransfers(transfersGenerated);
       setCompletedTransferIds({});
       setTransfersSheetOpen(true);
     } else {
-      showToast('Ingreso repartido exitosamente');
+      showToast('Ingreso repartido exitosamente en tus bolsillos');
     }
   };
 
-  // Pagar compromiso y vaciar bolsillo
+  // Pagar compromiso y vaciar bolsillo con registro de mes
   const handleConfirmPayCommitment = async () => {
     if (!selectedPocketDetail) return;
     const paymentAmount = Number(selectedPocketDetail.saldo_actual || 0);
+    const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
 
     const updated = pockets.map(p => {
       if (p.id === selectedPocketDetail.id) {
         return {
           ...p,
           saldo_actual: 0,
-          pagado_este_ciclo: true
+          pagado_este_ciclo: true,
+          ultimo_pago_mes: currentMonth,
+          ultimo_pago_fecha: new Date().toISOString()
         };
       }
       return p;
@@ -824,9 +927,22 @@ export default function App() {
       {/* HEADER LIMPIO Y RESPONSIVE */}
       <header className="flex items-center justify-between mb-4 sm:mb-6">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-2">
-            <span className="text-emerald-400">MI</span> Platicapp
-          </h1>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-1.5">
+              <span className="text-emerald-400">MI</span> Platicapp
+            </h1>
+
+            {/* Selector de perfil minimalista estilo Apple */}
+            <button
+              onClick={() => setProfileModalOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-semibold text-slate-300 hover:text-white hover:border-slate-700 transition active:scale-95 shadow-sm"
+              title="Cambiar o crear perfil / espacio de trabajo"
+            >
+              <UserIcon className="w-3 h-3 text-emerald-400" />
+              <span>{currentProfileName}</span>
+              <ChevronDown className="w-3 h-3 text-slate-400" />
+            </button>
+          </div>
           <p className="text-xs sm:text-sm text-slate-400 mt-0.5">Bolsillos y cuentas en sincronía</p>
         </div>
 
@@ -870,39 +986,6 @@ export default function App() {
           </button>
         </div>
       </header>
-
-      {/* SELECTOR DE PERFIL: PERSONAL VS EMPRESA */}
-      <div className="flex items-center justify-between gap-2 mb-5 bg-slate-900/60 border border-slate-800/80 p-1 rounded-2xl backdrop-blur-sm">
-        <button
-          onClick={() => {
-            setActiveProfile('personal');
-            localStorage.setItem('platicapp_active_profile', 'personal');
-          }}
-          className={`flex-1 py-2 px-3 rounded-xl text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 transition active:scale-95 ${
-            activeProfile === 'personal'
-              ? 'bg-slate-800 text-white shadow-sm border border-slate-700/60'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <UserIcon className="w-3.5 h-3.5 text-emerald-400" />
-          <span>{personalProfileName}</span>
-        </button>
-
-        <button
-          onClick={() => {
-            setActiveProfile('business');
-            localStorage.setItem('platicapp_active_profile', 'business');
-          }}
-          className={`flex-1 py-2 px-3 rounded-xl text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 transition active:scale-95 ${
-            activeProfile === 'business'
-              ? 'bg-slate-800 text-white shadow-sm border border-slate-700/60'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Building2 className="w-3.5 h-3.5 text-blue-400" />
-          <span>{businessProfileName}</span>
-        </button>
-      </div>
 
       {/* ======================================================== */}
       {/* 1. INICIO (HOME - OPERATIVO Y LIMPIO) */}
@@ -1108,7 +1191,7 @@ export default function App() {
 
           {/* BOTÓN PRINCIPAL: ENTRAR DINERO */}
           <button
-            onClick={() => setIncomeModalOpen(true)}
+            onClick={handleOpenIncomeModal}
             className="w-full py-4 sm:py-4.5 px-6 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-[0.98] text-slate-950 font-bold text-sm sm:text-base shadow-sm flex items-center justify-center gap-2.5 transition-all duration-200"
           >
             <Plus className="w-5 h-5" />
@@ -1764,46 +1847,24 @@ export default function App() {
               </div>
             </div>
 
-            {/* Configuración de Perfiles: Personal y Empresa */}
+            {/* Configuración de Espacios y Perfiles */}
             <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-5 space-y-3">
-              <div>
-                <h3 className="font-semibold text-sm text-white flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-blue-400" />
-                  <span>Perfiles de Contabilidad</span>
-                </h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Personaliza los nombres de tus dos espacios de trabajo independientes.
-                </p>
-              </div>
-
-              <div className="space-y-2.5 pt-1">
+              <div className="flex items-center justify-between">
                 <div>
-                  <label className="text-xs text-slate-400 font-medium">Nombre del Perfil Personal</label>
-                  <input
-                    type="text"
-                    value={personalProfileName}
-                    onChange={(e) => {
-                      setPersonalProfileName(e.target.value);
-                      localStorage.setItem('platicapp_personal_name', e.target.value);
-                    }}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none mt-1"
-                    placeholder="Personal"
-                  />
+                  <h3 className="font-semibold text-sm text-white flex items-center gap-2">
+                    <UserIcon className="w-4 h-4 text-emerald-400" />
+                    <span>Espacios de Trabajo y Perfiles</span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Actualmente en: <strong className="text-white">{currentProfileName}</strong> ({profilesList.length} espacio{profilesList.length !== 1 ? 's' : ''})
+                  </p>
                 </div>
-
-                <div>
-                  <label className="text-xs text-slate-400 font-medium">Nombre del Perfil de Empresa / Negocio</label>
-                  <input
-                    type="text"
-                    value={businessProfileName}
-                    onChange={(e) => {
-                      setBusinessProfileName(e.target.value);
-                      localStorage.setItem('platicapp_business_name', e.target.value);
-                    }}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none mt-1"
-                    placeholder="Mi Empresa"
-                  />
-                </div>
+                <button
+                  onClick={() => setProfileModalOpen(true)}
+                  className="py-1.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition active:scale-95 border border-slate-700/60"
+                >
+                  Gestionar
+                </button>
               </div>
             </div>
 
@@ -1990,22 +2051,58 @@ export default function App() {
       )}
 
       {/* ======================================================== */}
-      {/* MODAL: ENTRAR DINERO (REDDISEÑO RESPONSIVE HÍBRIDO % / $) */}
+      {/* MODAL: ENTRAR DINERO (DISEÑO BLINDADO HÍBRIDO % / $) */}
       {/* ======================================================== */}
       {incomeModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl max-h-[92vh] flex flex-col overscroll-contain animate-apple-pop">
+        <div 
+          className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              handleRequestCloseIncomeModal();
+            }
+          }}
+        >
+          <div className="bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl max-h-[92vh] flex flex-col overscroll-contain animate-apple-pop relative">
             
+            {/* Confirmación de descarte de ingreso */}
+            {showDiscardIncomeConfirm && (
+              <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-sm z-30 rounded-t-3xl sm:rounded-3xl p-6 flex flex-col items-center justify-center text-center space-y-4 animate-apple-pop">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center">
+                  <AlertCircle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="text-base font-bold text-white">¿Descartar este ingreso?</h4>
+                  <p className="text-xs text-slate-400 mt-1 max-w-xs">
+                    Se perderán los montos y repartos que hayas ingresado.
+                  </p>
+                </div>
+                <div className="flex gap-2 w-full max-w-xs pt-2">
+                  <button
+                    onClick={() => setShowDiscardIncomeConfirm(false)}
+                    className="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-semibold text-xs hover:bg-slate-700 transition active:scale-95"
+                  >
+                    Continuar editando
+                  </button>
+                  <button
+                    onClick={resetIncomingModal}
+                    className="flex-1 py-2.5 rounded-xl bg-rose-500 text-white font-bold text-xs hover:bg-rose-400 transition active:scale-95 shadow-md shadow-rose-500/20"
+                  >
+                    Descartar
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Header del Modal */}
             <div className="flex items-center justify-between border-b border-slate-800 pb-3 flex-shrink-0">
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-white text-base sm:text-lg">Entrar dinero</h3>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-                  {activeProfile === 'business' ? businessProfileName : personalProfileName}
+                  {currentProfileName}
                 </span>
               </div>
               <button 
-                onClick={() => setIncomeModalOpen(false)} 
+                onClick={handleRequestCloseIncomeModal} 
                 className="text-slate-400 hover:text-white p-1.5 active:scale-90 rounded-full hover:bg-slate-800"
               >
                 <X className="w-5 h-5" />
@@ -2020,6 +2117,7 @@ export default function App() {
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-400 font-bold">$</span>
                   <input
                     type="number"
+                    inputMode="numeric"
                     value={incomingAmount}
                     onChange={(e) => {
                       const val = Math.max(0, parseFloat(e.target.value) || 0);
@@ -2051,51 +2149,37 @@ export default function App() {
                     onChange={(e) => setIncomeOriginAccount(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-2 text-xs text-white mt-1"
                   >
-                    {visibleAccounts.map(acc => (
-                      <option key={acc.id} value={acc.nombre}>{acc.nombre}</option>
-                    ))}
+                    {visibleAccounts.length === 0 ? (
+                      <option value="Efectivo">Efectivo</option>
+                    ) : (
+                      visibleAccounts.map(acc => (
+                        <option key={acc.id} value={acc.nombre}>{acc.nombre}</option>
+                      ))
+                    )}
                   </select>
                 </div>
               </div>
 
-              {/* Botones de Reparto Inteligente */}
-              <div className="flex gap-1.5 flex-wrap pt-0.5">
-                <button
-                  type="button"
-                  onClick={handleApplyPredefinedPercentages}
-                  className="py-1.5 px-2.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold flex items-center gap-1 transition"
-                  title="Aplica los porcentajes base guardados en cada bolsillo"
-                >
-                  <Percent className="w-3 h-3 text-emerald-400" />
-                  <span>Porcentajes base</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleApplyWeeklyQuotas}
-                  className="py-1.5 px-2.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold flex items-center gap-1 transition"
-                  title="Calcula lo necesario para las cuotas semanales de compromisos"
-                >
-                  <Calendar className="w-3 h-3 text-blue-400" />
-                  <span>Cuotas semana</span>
-                </button>
-
+              {/* Botón Central Inteligente y Asignación Rápida a Libre */}
+              <div className="flex items-center gap-2 pt-0.5">
                 <button
                   type="button"
                   onClick={handleAskAI}
-                  disabled={isAiLoading || incomingAmount <= 0}
-                  className="py-1.5 px-2.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold flex items-center gap-1 transition disabled:opacity-50"
+                  disabled={isAiLoading || !incomingAmount || incomingAmount <= 0}
+                  className="flex-1 py-2 px-3 rounded-xl bg-gradient-to-r from-purple-900/40 to-slate-800 border border-purple-500/30 hover:border-purple-500/60 text-purple-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-[0.98] disabled:opacity-40"
+                  title="Calcula automáticamente según urgencias de corte, metas y porcentajes base"
                 >
-                  <Sparkles className="w-3 h-3 text-purple-400" />
-                  <span>{isAiLoading ? 'Analizando...' : 'Copiloto IA'}</span>
+                  <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                  <span>{isAiLoading ? 'Analizando urgencias...' : 'Repartir con Copiloto IA'}</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={balanceToFreePocket}
-                  className="py-1.5 px-2.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold flex items-center gap-1 transition ml-auto"
+                  className="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition active:scale-[0.98]"
+                  title="Asigna todo el porcentaje restante al bolsillo Libre"
                 >
-                  <Sliders className="w-3 h-3 text-amber-400" />
+                  <Sliders className="w-3.5 h-3.5 text-amber-400" />
                   <span>Restante a Libre</span>
                 </button>
               </div>
@@ -2106,14 +2190,39 @@ export default function App() {
                 </div>
               )}
 
-              {/* Barra de progreso de la suma */}
-              <div className="flex items-center justify-between text-xs font-semibold pt-1 border-t border-slate-800/60">
-                <span className={isPercentageValid ? 'text-emerald-400' : 'text-amber-400'}>
-                  Total asignado: {currentTotalPercentage.toFixed(1)}% de 100%
-                </span>
-                <span className="text-slate-400">
-                  ${Math.round((currentTotalPercentage / 100) * incomingAmount).toLocaleString('es-CO')} de ${incomingAmount.toLocaleString('es-CO')}
-                </span>
+              {/* Barra de progreso y validación 100% estricto */}
+              <div className="space-y-1.5 pt-1 border-t border-slate-800/60">
+                <div className="flex items-center justify-between text-xs font-semibold">
+                  <span className={isPercentageValid ? 'text-emerald-400' : currentTotalPercentage > 100 ? 'text-rose-400' : 'text-amber-400'}>
+                    {isPercentageValid
+                      ? '✓ 100% asignado exactamente'
+                      : currentTotalPercentage > 100
+                      ? `Excedido: ${(currentTotalPercentage - 100).toFixed(1)}% de más`
+                      : `Falta asignar: ${(100 - currentTotalPercentage).toFixed(1)}%`}
+                  </span>
+                  <span className="text-slate-400">
+                    ${Math.round((currentTotalPercentage / 100) * incomingAmount).toLocaleString('es-CO')} de ${incomingAmount.toLocaleString('es-CO')}
+                  </span>
+                </div>
+
+                {!isPercentageValid && incomingAmount > 0 && (
+                  <div className="text-[11px] text-amber-400/90 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1.5 rounded-xl flex items-center justify-between">
+                    <span>
+                      {currentTotalPercentage < 100
+                        ? `Debes repartir el 100% para continuar ($${Math.round(((100 - currentTotalPercentage) / 100) * incomingAmount).toLocaleString('es-CO')} restante)`
+                        : 'La suma supera el 100% del dinero ingresado'}
+                    </span>
+                    {currentTotalPercentage < 100 && (
+                      <button
+                        type="button"
+                        onClick={balanceToFreePocket}
+                        className="text-amber-300 font-bold underline ml-2 flex-shrink-0"
+                      >
+                        Enviar a Libre
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -2123,6 +2232,7 @@ export default function App() {
                 const pct = percentages[pocket.id] !== undefined ? percentages[pocket.id] : 0;
                 const allocatedPesos = Math.round((pct / 100) * (incomingAmount || 0));
                 const metrics = getPocketWeeklyMetrics(pocket);
+                const isCommitment = pocket.tipo === 'compromiso_fijo' || pocket.meta_monto || pocket.dia_vencimiento;
 
                 return (
                   <div key={pocket.id} className="bg-slate-950/70 border border-slate-800/70 rounded-2xl p-3 space-y-2">
@@ -2139,14 +2249,35 @@ export default function App() {
                             {pocket.porcentaje_objetivo}% base
                           </span>
                         )}
+                        {pocket.pagado_este_ciclo && (
+                          <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded font-medium border border-emerald-500/20">
+                            ✓ Pagado este ciclo
+                          </span>
+                        )}
                       </div>
-
-                      {metrics.cuotaSemanal > 0 && (
-                        <span className="text-[10px] text-slate-400 flex-shrink-0">
-                          Meta sem: ${metrics.cuotaSemanal.toLocaleString('es-CO')}
-                        </span>
-                      )}
                     </div>
+
+                    {/* Fila de compromiso: Cuánto falta en dinero y en días */}
+                    {isCommitment && (
+                      <div className="flex items-center justify-between text-[11px] text-slate-400 bg-slate-900/50 px-2 py-1 rounded-lg border border-slate-800/40">
+                        <div className="flex items-center gap-1 truncate">
+                          {metrics.meta > 0 ? (
+                            metrics.faltanteTotal > 0 ? (
+                              <span>Falta <strong className="text-slate-200">${metrics.faltanteTotal.toLocaleString('es-CO')}</strong> para meta</span>
+                            ) : (
+                              <span className="text-emerald-400 font-medium">Meta cubierta</span>
+                            )
+                          ) : (
+                            <span>Sin meta fija</span>
+                          )}
+                        </div>
+                        {metrics.daysLeft !== null && (
+                          <span className={metrics.daysLeft <= 3 ? 'text-amber-400 font-semibold' : 'text-slate-400'}>
+                            {metrics.daysLeft === 0 ? '¡Vence hoy!' : `Vence en ${metrics.daysLeft} días (día ${pocket.dia_vencimiento})`}
+                          </span>
+                        )}
+                      </div>
+                    )}
 
                     {/* Fila inferior: Inputs Híbridos (% y $) */}
                     <div className="flex items-center gap-2">
@@ -2196,13 +2327,113 @@ export default function App() {
               <button
                 onClick={handleConfirmAllocation}
                 disabled={!isPercentageValid || incomingAmount <= 0}
-                className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 text-slate-950 font-bold text-xs sm:text-sm transition active:scale-[0.99] flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/10"
+                className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-30 disabled:cursor-not-allowed text-slate-950 font-bold text-xs sm:text-sm transition active:scale-[0.99] flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/10"
               >
                 <span>Confirmar reparto y ver traslados</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL: GESTOR DE ESPACIOS Y PERFILES (ESTILO APPLE) */}
+      {/* ======================================================== */}
+      {profileModalOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setProfileModalOpen(false);
+          }}
+        >
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm sm:max-w-md w-full p-5 sm:p-6 space-y-4 shadow-2xl animate-apple-pop">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="font-bold text-white text-base flex items-center gap-2">
+                  <UserIcon className="w-4 h-4 text-emerald-400" />
+                  <span>Espacios de Trabajo</span>
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Cambia entre tu economía personal y tus negocios.
+                </p>
+              </div>
+              <button onClick={() => setProfileModalOpen(false)} className="text-slate-400 hover:text-white p-1.5 active:scale-90">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Lista de Perfiles Existentes */}
+            <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+              {profilesList.map(prof => {
+                const isActive = prof.id === activeProfile;
+                return (
+                  <div
+                    key={prof.id}
+                    className={`p-3 rounded-2xl border transition flex items-center justify-between ${
+                      isActive 
+                        ? 'bg-slate-800/80 border-emerald-500/40 shadow-sm' 
+                        : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
+                    }`}
+                  >
+                    <button
+                      onClick={() => handleSelectProfile(prof.id)}
+                      className="flex items-center gap-2.5 flex-1 text-left"
+                    >
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold ${
+                        isActive ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-300'
+                      }`}>
+                        {prof.id === 'personal' ? '👤' : '🏢'}
+                      </div>
+                      <div>
+                        <span className="font-semibold text-xs sm:text-sm text-white block">
+                          {prof.name}
+                        </span>
+                        {isActive ? (
+                          <span className="text-[10px] text-emerald-400 font-medium">Activo ahora</span>
+                        ) : (
+                          <span className="text-[10px] text-slate-400">Toca para abrir</span>
+                        )}
+                      </div>
+                    </button>
+
+                    {prof.id !== 'personal' && (
+                      <button
+                        onClick={() => handleDeleteProfile(prof.id)}
+                        className="text-slate-500 hover:text-rose-400 p-1.5 transition active:scale-90"
+                        title="Eliminar este perfil"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Formulario Crear Nuevo Perfil */}
+            <form onSubmit={handleCreateProfile} className="pt-2 border-t border-slate-800 space-y-2">
+              <label className="text-xs text-slate-400 font-medium block">
+                + Crear nuevo perfil o negocio
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newProfileNameInput}
+                  onChange={(e) => setNewProfileNameInput(e.target.value)}
+                  placeholder="ej. Mi Tienda, Freelance, Empresa..."
+                  className="flex-1 bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-slate-700"
+                />
+                <button
+                  type="submit"
+                  disabled={!newProfileNameInput.trim()}
+                  className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 text-slate-950 font-bold text-xs transition active:scale-95"
+                >
+                  Crear
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

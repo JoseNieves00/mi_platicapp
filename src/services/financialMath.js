@@ -91,10 +91,11 @@ export function getSegmentedBalances(pockets = []) {
 }
 
 /**
- * Calcula la repartición híbrida automática para un ingreso entrante
+ * Calcula la repartición de porcentajes base definidos por el usuario en cada bolsillo.
+ * IMPORTANTE: Los bolsillos con porcentaje_objetivo NUNCA deben inflarse con el sobrante.
  */
 export function calculatePredefinedAllocation(incomingAmount, pockets = []) {
-  if (!incomingAmount || incomingAmount <= 0 || !pockets || pockets.length === 0) {
+  if (!pockets || pockets.length === 0) {
     return { percentages: {}, amounts: {}, remainingPercentage: 100, remainingAmount: incomingAmount || 0 };
   }
 
@@ -104,25 +105,25 @@ export function calculatePredefinedAllocation(incomingAmount, pockets = []) {
 
   const freePocket = pockets.find(p => p.tipo === 'libre' || p.nombre.toLowerCase().includes('libre'));
 
-  // 1. Asignar los que tienen porcentaje_objetivo explícito
+  // 1. Asignar los que tienen porcentaje_objetivo explícito (estricto)
   pockets.forEach(p => {
     if (p.id === freePocket?.id) return;
     if (p.porcentaje_objetivo !== undefined && p.porcentaje_objetivo !== null && Number(p.porcentaje_objetivo) > 0) {
-      const pct = Math.min(100 - totalPctAssigned, Number(p.porcentaje_objetivo));
-      resultPcts[p.id] = pct;
-      resultAmounts[p.id] = Math.round((pct / 100) * incomingAmount);
-      totalPctAssigned += pct;
+      const fixedPct = Number(p.porcentaje_objetivo);
+      resultPcts[p.id] = fixedPct;
+      resultAmounts[p.id] = incomingAmount > 0 ? Math.round((fixedPct / 100) * incomingAmount) : 0;
+      totalPctAssigned += fixedPct;
     }
   });
 
-  // 2. Si sobra porcentaje o si no tenían fijos, distribuir según faltante semanal o al libre
-  const remainingPct = Math.max(0, 100 - totalPctAssigned);
+  // 2. Si hay bolsillo Libre, el sobrante va al Libre
+  const remainingPct = Math.max(0, Number((100 - totalPctAssigned).toFixed(1)));
 
   pockets.forEach(p => {
     if (resultPcts[p.id] === undefined) {
       if (p.id === freePocket?.id) {
-        resultPcts[p.id] = Number(remainingPct.toFixed(1));
-        resultAmounts[p.id] = Math.round((remainingPct / 100) * incomingAmount);
+        resultPcts[p.id] = remainingPct;
+        resultAmounts[p.id] = incomingAmount > 0 ? Math.round((remainingPct / 100) * incomingAmount) : 0;
       } else {
         resultPcts[p.id] = 0;
         resultAmounts[p.id] = 0;
@@ -130,11 +131,114 @@ export function calculatePredefinedAllocation(incomingAmount, pockets = []) {
     }
   });
 
-  // Si no hay bolsillo libre, compensar al primer bolsillo
-  if (!freePocket && remainingPct > 0 && pockets[0]) {
-    const firstId = pockets[0].id;
-    resultPcts[firstId] = Number(((resultPcts[firstId] || 0) + remainingPct).toFixed(1));
-    resultAmounts[firstId] = Math.round((resultPcts[firstId] / 100) * incomingAmount);
+  // Si no hay bolsillo libre, los demás quedan en 0 y el remainingPercentage indica cuánto falta asignar al 100%
+  return {
+    percentages: resultPcts,
+    amounts: resultAmounts,
+    remainingPercentage: freePocket ? 0 : remainingPct,
+    remainingAmount: freePocket ? 0 : (incomingAmount > 0 ? Math.round((remainingPct / 100) * incomingAmount) : 0)
+  };
+}
+
+/**
+ * Sugerencia inteligente de reparto:
+ * 1. Respeta estrictamente los porcentajes base (ej. Diezmo 10%).
+ * 2. Prioriza compromisos por urgencia de fecha de corte/vencimiento (menor daysLeft).
+ * 3. Asigna para cubrir la cuota semanal pendiente (o meta mensual) SIN exceder la meta fijada.
+ * 4. Ignora compromisos ya pagados en este ciclo.
+ * 5. Cualquier excedente va al bolsillo Libre.
+ */
+export function calculateWeeklyTargetAllocation(incomingAmount, pockets = []) {
+  if (!incomingAmount || incomingAmount <= 0 || !pockets || pockets.length === 0) {
+    return { percentages: {}, amounts: {} };
+  }
+
+  const freePocket = pockets.find(p => p.tipo === 'libre' || p.nombre.toLowerCase().includes('libre'));
+  const resultAmounts = {};
+  const resultPcts = {};
+  let moneyAssigned = 0;
+  let pctAssigned = 0;
+
+  // 1. Reservar primero los porcentajes base inmutables (ej. Diezmo 10%)
+  pockets.forEach(p => {
+    if (p.id === freePocket?.id) return;
+    if (p.porcentaje_objetivo !== undefined && p.porcentaje_objetivo !== null && Number(p.porcentaje_objetivo) > 0) {
+      const fixedPct = Number(p.porcentaje_objetivo);
+      const amt = Math.round((fixedPct / 100) * incomingAmount);
+      resultPcts[p.id] = fixedPct;
+      resultAmounts[p.id] = amt;
+      moneyAssigned += amt;
+      pctAssigned += fixedPct;
+    }
+  });
+
+  // Dinero y porcentaje restante disponible para compromisos y gastos
+  let availableMoney = Math.max(0, incomingAmount - moneyAssigned);
+
+  // 2. Analizar compromisos pendientes (que no tengan porcentaje fijo ya asignado y no sean libre)
+  const commitments = pockets
+    .filter(p => p.id !== freePocket?.id && resultPcts[p.id] === undefined)
+    .map(p => {
+      const metrics = getPocketWeeklyMetrics(p);
+      const isPaid = Boolean(p.pagado_este_ciclo);
+      // Lo que realmente le falta para su cuota semanal o para su meta total
+      const neededWeekly = isPaid ? 0 : Math.max(0, metrics.faltanteSemanal);
+      const neededTotal = isPaid ? 0 : Math.max(0, metrics.faltanteTotal);
+      const targetNeed = neededWeekly > 0 ? neededWeekly : (neededTotal > 0 ? neededTotal : 0);
+      const days = metrics.daysLeft !== null ? metrics.daysLeft : 999;
+      return { pocket: p, metrics, targetNeed, days, isPaid };
+    })
+    // Ordenar por urgencia: primero los que vencen más pronto
+    .sort((a, b) => a.days - b.days);
+
+  // Asignar fondos a compromisos con urgencia
+  commitments.forEach(item => {
+    if (item.isPaid || item.targetNeed <= 0 || availableMoney <= 0) {
+      resultAmounts[item.pocket.id] = 0;
+      resultPcts[item.pocket.id] = 0;
+      return;
+    }
+
+    // No asignar más de lo que necesita el compromiso ni más de lo disponible
+    const allocated = Math.min(availableMoney, item.targetNeed);
+    resultAmounts[item.pocket.id] = allocated;
+    const pct = Number(((allocated / incomingAmount) * 100).toFixed(1));
+    resultPcts[item.pocket.id] = pct;
+    availableMoney -= allocated;
+    moneyAssigned += allocated;
+    pctAssigned += pct;
+  });
+
+  // 3. Asignar el remanente al bolsillo Libre para garantizar 100% de asignación
+  const remainingPct = Math.max(0, Number((100 - pctAssigned).toFixed(1)));
+  const remainingMoney = Math.max(0, incomingAmount - moneyAssigned);
+
+  if (freePocket) {
+    resultPcts[freePocket.id] = remainingPct;
+    resultAmounts[freePocket.id] = remainingMoney;
+  } else {
+    // Si no hay bolsillo libre explícito y queda remanente, asignar al primer compromiso pendiente o al primero disponible
+    const targetComp = commitments.find(c => !c.isPaid) || commitments[0];
+    const targetId = targetComp ? targetComp.pocket.id : pockets[0]?.id;
+    if (targetId && remainingPct > 0) {
+      // Solo sumamos al primero si NO es un bolsillo con porcentaje base fijo
+      const firstPocket = pockets.find(p => p.id === targetId);
+      if (!firstPocket?.porcentaje_objetivo) {
+        resultPcts[targetId] = Number(((resultPcts[targetId] || 0) + remainingPct).toFixed(1));
+        resultAmounts[targetId] = (resultAmounts[targetId] || 0) + remainingMoney;
+      }
+    }
+  }
+
+  // Ajuste fino por redondeo a 100%
+  const currentTotal = Object.values(resultPcts).reduce((a, b) => a + b, 0);
+  const diff = Number((100 - currentTotal).toFixed(1));
+  if (Math.abs(diff) > 0.01 && Math.abs(diff) <= 0.5) {
+    const adjustPocket = freePocket || pockets.find(p => !p.porcentaje_objetivo) || pockets[0];
+    if (adjustPocket) {
+      resultPcts[adjustPocket.id] = Number(((resultPcts[adjustPocket.id] || 0) + diff).toFixed(1));
+      resultAmounts[adjustPocket.id] = Math.round((resultPcts[adjustPocket.id] / 100) * incomingAmount);
+    }
   }
 
   return {
@@ -144,88 +248,24 @@ export function calculatePredefinedAllocation(incomingAmount, pockets = []) {
 }
 
 /**
- * Sugerencia por cuotas semanales pendientes: distribuye priorizando completar cuotas de esta semana
+ * Detecta y reinicia automáticamente compromisos pagados si el mes calendario cambió
  */
-export function calculateWeeklyTargetAllocation(incomingAmount, pockets = []) {
-  if (!incomingAmount || incomingAmount <= 0 || !pockets || pockets.length === 0) {
-    return { percentages: {}, amounts: {} };
-  }
+export function checkAndResetMonthlyCycle(pocketsList = []) {
+  if (!pocketsList || pocketsList.length === 0) return { updated: [], hasChanges: false };
+  const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+  let hasChanges = false;
 
-  const freePocket = pockets.find(p => p.tipo === 'libre' || p.nombre.toLowerCase().includes('libre'));
-  const commitments = pockets.filter(p => p.id !== freePocket?.id);
-
-  let neededMoneyTotal = 0;
-  const neededPerPocket = {};
-
-  commitments.forEach(p => {
-    const metrics = getPocketWeeklyMetrics(p);
-    const needed = Math.max(0, metrics.faltanteSemanal > 0 ? metrics.faltanteSemanal : (p.pagado_este_ciclo ? 0 : metrics.faltanteTotal));
-    neededPerPocket[p.id] = needed;
-    neededMoneyTotal += needed;
+  const updated = pocketsList.map(p => {
+    if (p.pagado_este_ciclo && p.ultimo_pago_mes && p.ultimo_pago_mes !== currentMonth) {
+      hasChanges = true;
+      return {
+        ...p,
+        pagado_este_ciclo: false
+      };
+    }
+    return p;
   });
 
-  const resultAmounts = {};
-  const resultPcts = {};
-  let moneyAssigned = 0;
-
-  if (neededMoneyTotal > 0 && neededMoneyTotal <= incomingAmount) {
-    // Alcanza para cubrir todas las cuotas semanales pendientes
-    commitments.forEach(p => {
-      const amt = neededPerPocket[p.id];
-      resultAmounts[p.id] = amt;
-      const pct = Number(((amt / incomingAmount) * 100).toFixed(1));
-      resultPcts[p.id] = pct;
-      moneyAssigned += amt;
-    });
-
-    const leftoverMoney = incomingAmount - moneyAssigned;
-    if (freePocket) {
-      resultAmounts[freePocket.id] = leftoverMoney;
-      resultPcts[freePocket.id] = Number(((leftoverMoney / incomingAmount) * 100).toFixed(1));
-    }
-  } else if (neededMoneyTotal > incomingAmount) {
-    // Repartir proporcionalmente a lo que cada uno necesita
-    commitments.forEach(p => {
-      const proportion = neededMoneyTotal > 0 ? (neededPerPocket[p.id] / neededMoneyTotal) : 0;
-      const amt = Math.round(incomingAmount * proportion);
-      resultAmounts[p.id] = amt;
-      resultPcts[p.id] = Number(((amt / incomingAmount) * 100).toFixed(1));
-      moneyAssigned += amt;
-    });
-
-    if (freePocket) {
-      resultAmounts[freePocket.id] = 0;
-      resultPcts[freePocket.id] = 0;
-    }
-  } else {
-    // No había compromisos con cuota pendiente: repartir por igual o todo a Libre
-    if (freePocket) {
-      resultAmounts[freePocket.id] = incomingAmount;
-      resultPcts[freePocket.id] = 100;
-      commitments.forEach(p => {
-        resultAmounts[p.id] = 0;
-        resultPcts[p.id] = 0;
-      });
-    } else {
-      const count = pockets.length;
-      const baseAmt = Math.floor(incomingAmount / count);
-      pockets.forEach((p, idx) => {
-        const amt = idx === 0 ? incomingAmount - (baseAmt * (count - 1)) : baseAmt;
-        resultAmounts[p.id] = amt;
-        resultPcts[p.id] = Number(((amt / incomingAmount) * 100).toFixed(1));
-      });
-    }
-  }
-
-  // Ajustar redondeo de porcentajes para que sume exactamente 100%
-  const currentSum = Object.values(resultPcts).reduce((a, b) => a + b, 0);
-  const targetPocketId = freePocket ? freePocket.id : pockets[0]?.id;
-  if (targetPocketId && Math.abs(currentSum - 100) > 0.01) {
-    resultPcts[targetPocketId] = Number(((resultPcts[targetPocketId] || 0) + (100 - currentSum)).toFixed(1));
-  }
-
-  return {
-    percentages: resultPcts,
-    amounts: resultAmounts
-  };
+  return { updated, hasChanges };
 }
+
