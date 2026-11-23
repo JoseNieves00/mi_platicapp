@@ -750,6 +750,26 @@ export default function App() {
     setHistory(updatedHistory);
     localStorage.setItem('platicapp_history_real_v1', JSON.stringify(updatedHistory));
 
+    // Si Supabase está conectado, guardar el gasto en la tabla expenses
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('expenses').insert({
+            pocket_id: pocket.id,
+            user_id: user.id,
+            monto: amount,
+            categoria: pocket.tipo || 'gasto_corriente',
+            nota: expenseForm.nota || 'Gasto registrado',
+            cuenta_usada: pocket.cuenta_destino || 'Cuenta',
+            perfil: activeProfile
+          });
+        }
+      } catch (err) {
+        console.warn('Error al guardar gasto en Supabase:', err);
+      }
+    }
+
     setExpenseModalOpen(false);
     setSelectedPocketDetail(null);
     setExpenseForm({ pocketId: '', monto: '', nota: '' });
@@ -786,7 +806,7 @@ export default function App() {
 
     const pocketData = {
       ...editingPocket,
-      id: editingPocket.id || `p-${Date.now()}`,
+      id: editingPocket.id || undefined,
       meta_monto: editingPocket.meta_monto ? parseFloat(editingPocket.meta_monto) : null,
       dia_vencimiento: editingPocket.dia_vencimiento ? parseInt(editingPocket.dia_vencimiento) : null,
       dia_vencimiento_2: editingPocket.dia_vencimiento_2 ? parseInt(editingPocket.dia_vencimiento_2) : null,
@@ -946,11 +966,11 @@ export default function App() {
         }
         if (parsed.accounts && Array.isArray(parsed.accounts)) {
           setAccounts(parsed.accounts);
-          localStorage.setItem('platicapp_accounts_v1', JSON.stringify(parsed.accounts));
+          localStorage.setItem('platicapp_accounts_v2', JSON.stringify(parsed.accounts));
         }
         if (parsed.history && Array.isArray(parsed.history)) {
           setHistory(parsed.history);
-          localStorage.setItem('platicapp_history_v3', JSON.stringify(parsed.history));
+          localStorage.setItem('platicapp_history_real_v1', JSON.stringify(parsed.history));
         }
         showToast('Datos restaurados');
       } catch {
