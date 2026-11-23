@@ -74,6 +74,7 @@ export async function saveAccount(account) {
   };
 
   const exists = current.some(a => a.id === account.id || a.nombre.toLowerCase() === account.nombre.toLowerCase());
+  let updated;
   if (exists) {
     updated = current.map(a => (a.id === account.id || a.nombre.toLowerCase() === account.nombre.toLowerCase()) 
       ? { ...a, ...sanitizedAccount, id: a.id || validId } 
